@@ -469,12 +469,18 @@ def show_dashboard_overview(latest_data, filtered_data):
                 names=list(position_counts.keys()),
                 title="Position Distribution",
                 color_discrete_map={
-                    'Top 3 (1-3)': '#166534',
-                    'Positions 4-10': '#92400e',
-                    'Not Ranking': '#dc2626'
+                    'Top 3 (1-3)': '#10b981',
+                    'Positions 4-10': '#f59e0b',
+                    'Not Ranking': '#ef4444'
                 }
             )
-            fig_pie.update_layout(height=400)
+            fig_pie.update_layout(
+                height=400,
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font_color='white',
+                title_font_color='white'
+            )
             st.plotly_chart(fig_pie, use_container_width=True)
     
     with col2:
@@ -493,9 +499,18 @@ def show_dashboard_overview(latest_data, filtered_data):
                     y='Avg_Position',
                     title="Average Position by Market",
                     color='Avg_Position',
-                    color_continuous_scale=['#166534', '#92400e', '#dc2626']
+                    color_continuous_scale=['#10b981', '#f59e0b', '#ef4444']
                 )
-                fig_bar.update_layout(height=400, yaxis_title="Average Position")
+                fig_bar.update_layout(
+                    height=400, 
+                    yaxis_title="Average Position",
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    font_color='white',
+                    title_font_color='white',
+                    xaxis=dict(color='white'),
+                    yaxis=dict(color='white')
+                )
                 st.plotly_chart(fig_bar, use_container_width=True)
 
 def show_keyword_tracking(df_processed, filtered_data):
@@ -506,11 +521,11 @@ def show_keyword_tracking(df_processed, filtered_data):
     if 'Keyword' in df_processed.columns:
         available_keywords = df_processed['Keyword'].dropna().unique()
     else:
-        st.error("❌ No 'Keyword' column found in data")
+        st.markdown('<div class="stError">❌ No "Keyword" column found in data</div>', unsafe_allow_html=True)
         return
     
     if len(available_keywords) == 0:
-        st.warning("⚠️ No keywords found in the data.")
+        st.markdown('<div class="stWarning">⚠️ No keywords found in the data.</div>', unsafe_allow_html=True)
         return
     
     selected_keyword = st.selectbox(
@@ -566,27 +581,33 @@ def show_keyword_tracking(df_processed, filtered_data):
                     x='DateTime',
                     y='Position_Numeric',
                     title=f'Position Tracking for "{selected_keyword}"',
-                    markers=True
+                    markers=True,
+                    color_discrete_sequence=['#667eea']
                 )
                 
                 fig.update_layout(
-                    yaxis=dict(autorange="reversed"),
+                    yaxis=dict(autorange="reversed", color='white'),
                     height=400,
                     yaxis_title="Search Position",
-                    xaxis_title="Date"
+                    xaxis_title="Date",
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    font_color='white',
+                    title_font_color='white',
+                    xaxis=dict(color='white')
                 )
                 
-                fig.add_hline(y=3.5, line_dash="dash", line_color="green", 
-                             annotation_text="Top 3 Threshold")
-                fig.add_hline(y=10.5, line_dash="dash", line_color="orange", 
-                             annotation_text="First Page Threshold")
+                fig.add_hline(y=3.5, line_dash="dash", line_color="#10b981", 
+                             annotation_text="Top 3 Threshold", annotation_font_color='white')
+                fig.add_hline(y=10.5, line_dash="dash", line_color="#f59e0b", 
+                             annotation_text="First Page Threshold", annotation_font_color='white')
                 
                 st.plotly_chart(fig, use_container_width=True)
             else:
-                st.info("No numeric position data available for this keyword.")
+                st.markdown('<div class="stInfo">No numeric position data available for this keyword.</div>', unsafe_allow_html=True)
 
 def show_date_comparison(df_processed):
-    """Date Comparison Page"""
+    """Date Comparison Page with visual SERP-style layout"""
     st.markdown('<h2 class="section-header">📅 Date Comparison Analysis</h2>', unsafe_allow_html=True)
     
     # Get available dates
@@ -595,8 +616,8 @@ def show_date_comparison(df_processed):
         available_dates = sorted(df_processed['Date'].unique())
         
         if len(available_dates) < 2:
-            st.warning("⚠️ Need at least 2 different dates for comparison.")
-            st.info("💡 This feature will be most useful when you have historical data spanning multiple days/weeks.")
+            st.markdown('<div class="stWarning">⚠️ Need at least 2 different dates for comparison.</div>', unsafe_allow_html=True)
+            st.markdown('<div class="stInfo">💡 This feature will be most useful when you have historical data spanning multiple days/weeks.</div>', unsafe_allow_html=True)
             return
         
         col1, col2 = st.columns(2)
@@ -620,7 +641,7 @@ def show_date_comparison(df_processed):
             )
         
         if date1 == date2:
-            st.warning("⚠️ Please select two different dates for comparison.")
+            st.markdown('<div class="stWarning">⚠️ Please select two different dates for comparison.</div>', unsafe_allow_html=True)
             return
         
         # Filter data for selected dates
@@ -628,73 +649,288 @@ def show_date_comparison(df_processed):
         data2 = df_processed[df_processed['Date'] == date2].copy()
         
         if data1.empty or data2.empty:
-            st.error("❌ No data found for one or both selected dates.")
+            st.markdown('<div class="stError">❌ No data found for one or both selected dates.</div>', unsafe_allow_html=True)
             return
         
         # Perform comparison
-        st.markdown(f'<h3 class="section-header">📊 Comparison Results: {date1} vs {date2}</h3>', unsafe_allow_html=True)
+        st.markdown(f'<h3 class="section-header">📊 SERP Comparison: {date1} vs {date2}</h3>', unsafe_allow_html=True)
         
-        # Merge data for comparison
-        comparison_data = []
-        
-        # Get all unique keywords from both dates
+        # Summary badges
         all_keywords = set(data1['Keyword'].unique()) | set(data2['Keyword'].unique())
         
+        # Calculate changes
+        improved_count = 0
+        declined_count = 0
+        new_count = 0
+        lost_count = 0
+        
+        comparison_data = []
         for keyword in all_keywords:
             kw_data1 = data1[data1['Keyword'] == keyword]
             kw_data2 = data2[data2['Keyword'] == keyword]
             
-            pos1 = kw_data1['Recharge Position'].iloc[0] if not kw_data1.empty else 'Not Ranking'
-            pos2 = kw_data2['Recharge Position'].iloc[0] if not kw_data2.empty else 'Not Ranking'
+            pos1 = kw_data1['Recharge Position'].iloc[0] if not kw_data1.empty else None
+            pos2 = kw_data2['Recharge Position'].iloc[0] if not kw_data2.empty else None
             
             market = kw_data1['Market'].iloc[0] if not kw_data1.empty else (kw_data2['Market'].iloc[0] if not kw_data2.empty else 'Unknown')
             
             change_val, change_desc = calculate_position_change(pos1, pos2)
             
+            if change_val == float('inf'):
+                new_count += 1
+                change_type = "new"
+            elif change_val == float('-inf'):
+                lost_count += 1
+                change_type = "lost"
+            elif change_val > 0:
+                improved_count += 1
+                change_type = "improved"
+            elif change_val < 0:
+                declined_count += 1
+                change_type = "declined"
+            else:
+                change_type = "stable"
+            
             comparison_data.append({
-                'Keyword': keyword,
-                'Market': market,
-                'Position_Date1': pos1,
-                'Position_Date2': pos2,
-                'Change_Value': change_val,
-                'Change_Description': change_desc
+                'keyword': keyword,
+                'market': market,
+                'pos1': pos1,
+                'pos2': pos2,
+                'change_val': change_val,
+                'change_desc': change_desc,
+                'change_type': change_type
             })
         
-        comparison_df = pd.DataFrame(comparison_data)
+        # Summary badges
+        st.markdown(f"""
+        <div style="display: flex; gap: 1rem; margin: 1rem 0;">
+            <span style="background: #10b981; color: white; padding: 0.5rem 1rem; border-radius: 20px; font-weight: bold;">
+                Improved {improved_count}
+            </span>
+            <span style="background: #ef4444; color: white; padding: 0.5rem 1rem; border-radius: 20px; font-weight: bold;">
+                Declined {declined_count}
+            </span>
+            <span style="background: #3b82f6; color: white; padding: 0.5rem 1rem; border-radius: 20px; font-weight: bold;">
+                New {new_count}
+            </span>
+            <span style="background: #f59e0b; color: white; padding: 0.5rem 1rem; border-radius: 20px; font-weight: bold;">
+                Lost {lost_count}
+            </span>
+        </div>
+        """, unsafe_allow_html=True)
         
-        # Summary metrics
-        col1, col2, col3, col4 = st.columns(4)
+        # Visual SERP-style comparison
+        st.markdown("""
+        <style>
+        .serp-comparison {
+            display: flex;
+            gap: 2rem;
+            margin: 2rem 0;
+        }
         
-        with col1:
-            improved = len(comparison_df[comparison_df['Change_Value'] > 0])
-            st.metric("📈 Improved Rankings", improved, f"{improved/len(comparison_df)*100:.1f}% of keywords")
+        .serp-column {
+            flex: 1;
+            background: #1a1a2e;
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid #667eea;
+        }
         
-        with col2:
-            declined = len(comparison_df[comparison_df['Change_Value'] < 0])
-            st.metric("📉 Declined Rankings", declined, f"{declined/len(comparison_df)*100:.1f}% of keywords")
+        .serp-header {
+            text-align: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #ffffff;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #667eea;
+        }
         
-        with col3:
-            new_rankings = len(comparison_df[comparison_df['Change_Value'] == float('inf')])
-            st.metric("🆕 New Rankings", new_rankings)
+        .serp-item {
+            display: flex;
+            align-items: center;
+            margin: 0.8rem 0;
+            padding: 0.8rem;
+            background: #16213e;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
         
-        with col4:
-            lost_rankings = len(comparison_df[comparison_df['Change_Value'] == float('-inf')])
-            st.metric("❌ Lost Rankings", lost_rankings)
+        .serp-item.improved {
+            border-left-color: #10b981;
+            background: linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, #16213e 100%);
+        }
         
-        # Detailed comparison table
-        st.markdown('<h3 class="section-header">📋 Detailed Comparison Table</h3>', unsafe_allow_html=True)
+        .serp-item.declined {
+            border-left-color: #ef4444;
+            background: linear-gradient(90deg, rgba(239, 68, 68, 0.1) 0%, #16213e 100%);
+        }
         
-        comparison_df_sorted = comparison_df.sort_values('Change_Value', ascending=False)
+        .serp-item.new {
+            border-left-color: #3b82f6;
+            background: linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, #16213e 100%);
+        }
         
-        display_df = comparison_df_sorted[['Keyword', 'Market', 'Position_Date1', 'Position_Date2', 'Change_Description']].copy()
-        display_df.columns = ['Keyword', 'Market', f'Position {date1}', f'Position {date2}', 'Change']
+        .serp-item.lost {
+            border-left-color: #f59e0b;
+            background: linear-gradient(90deg, rgba(245, 158, 11, 0.1) 0%, #16213e 100%);
+        }
         
-        st.dataframe(display_df, use_container_width=True, hide_index=True)
+        .position-number {
+            background: #667eea;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 1rem;
+            flex-shrink: 0;
+        }
+        
+        .position-number.improved {
+            background: #10b981;
+        }
+        
+        .position-number.declined {
+            background: #ef4444;
+        }
+        
+        .position-number.new {
+            background: #3b82f6;
+        }
+        
+        .position-number.lost {
+            background: #f59e0b;
+        }
+        
+        .position-number.not-ranking {
+            background: #6b7280;
+        }
+        
+        .keyword-info {
+            flex: 1;
+        }
+        
+        .keyword-title {
+            color: #ffffff;
+            font-weight: 600;
+            margin-bottom: 0.3rem;
+        }
+        
+        .keyword-market {
+            color: #a0a9c0;
+            font-size: 0.9rem;
+        }
+        
+        .change-indicator {
+            font-size: 0.8rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 12px;
+            margin-left: 0.5rem;
+        }
+        
+        .change-indicator.improved {
+            background: #10b981;
+            color: white;
+        }
+        
+        .change-indicator.declined {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .change-indicator.new {
+            background: #3b82f6;
+            color: white;
+        }
+        
+        .change-indicator.lost {
+            background: #f59e0b;
+            color: white;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        # Create SERP-style layout
+        html_content = f"""
+        <div class="serp-comparison">
+            <div class="serp-column">
+                <div class="serp-header">{date1}</div>
+        """
+        
+        # Sort keywords by position for date1
+        date1_sorted = sorted(comparison_data, key=lambda x: x['pos1'] if isinstance(x['pos1'], (int, float)) else 999)
+        
+        for item in date1_sorted:
+            pos1 = item['pos1']
+            pos_display = str(pos1) if isinstance(pos1, (int, float)) else "NR"
+            pos_class = "not-ranking" if not isinstance(pos1, (int, float)) else ""
+            
+            html_content += f"""
+                <div class="serp-item">
+                    <div class="position-number {pos_class}">{pos_display}</div>
+                    <div class="keyword-info">
+                        <div class="keyword-title">{item['keyword']}</div>
+                        <div class="keyword-market">{item['market']}</div>
+                    </div>
+                </div>
+            """
+        
+        html_content += """
+            </div>
+            <div class="serp-column">
+        """
+        
+        html_content += f'<div class="serp-header">{date2}</div>'
+        
+        # Sort keywords by position for date2
+        date2_sorted = sorted(comparison_data, key=lambda x: x['pos2'] if isinstance(x['pos2'], (int, float)) else 999)
+        
+        for item in date2_sorted:
+            pos2 = item['pos2']
+            pos_display = str(pos2) if isinstance(pos2, (int, float)) else "NR"
+            change_type = item['change_type']
+            
+            change_text = ""
+            if change_type == "improved":
+                change_text = f"↗ +{item['change_val']}"
+            elif change_type == "declined":
+                change_text = f"↘ {item['change_val']}"
+            elif change_type == "new":
+                change_text = "NEW"
+            elif change_type == "lost":
+                change_text = "LOST"
+            
+            html_content += f"""
+                <div class="serp-item {change_type}">
+                    <div class="position-number {change_type}">{pos_display}</div>
+                    <div class="keyword-info">
+                        <div class="keyword-title">{item['keyword']}</div>
+                        <div class="keyword-market">{item['market']}</div>
+                    </div>
+                    {f'<div class="change-indicator {change_type}">{change_text}</div>' if change_text else ''}
+                </div>
+            """
+        
+        html_content += """
+            </div>
+        </div>
+        """
+        
+        st.markdown(html_content, unsafe_allow_html=True)
         
         # Export comparison results
         st.markdown('<h3 class="section-header">📥 Export Results</h3>', unsafe_allow_html=True)
         
-        csv_data = comparison_df.to_csv(index=False)
+        # Create DataFrame for export
+        export_df = pd.DataFrame(comparison_data)
+        export_df = export_df[['keyword', 'market', 'pos1', 'pos2', 'change_desc']].copy()
+        export_df.columns = ['Keyword', 'Market', f'Position {date1}', f'Position {date2}', 'Change']
+        
+        csv_data = export_df.to_csv(index=False)
         st.download_button(
             label="📥 Download Comparison Results as CSV",
             data=csv_data,
@@ -703,7 +939,7 @@ def show_date_comparison(df_processed):
         )
         
     else:
-        st.error("❌ No date information found in the data.")
+        st.markdown('<div class="stError">❌ No date information found in the data.</div>', unsafe_allow_html=True)
 
 def main():
     # Header
@@ -715,7 +951,7 @@ def main():
     """, unsafe_allow_html=True)
     
     # File upload section
-    st.markdown("### 📁 Upload Your Position Tracking Data")
+    st.markdown('<h3 style="color: #ffffff;">📁 Upload Your Position Tracking Data</h3>', unsafe_allow_html=True)
     uploaded_file = st.file_uploader(
         "Choose your Position tracking Excel file",
         type=['xlsx', 'xls'],
@@ -728,11 +964,11 @@ def main():
             df = load_data_from_excel(uploaded_file)
     else:
         # Use sample data
-        st.info("💡 Upload your Excel file above, or use the sample data below")
+        st.markdown('<p style="color: #a0a9c0;">💡 Upload your Excel file above, or use the sample data below</p>', unsafe_allow_html=True)
         df = get_sample_data()
     
     if df.empty:
-        st.warning("⚠️ No data found. Please upload your Excel file.")
+        st.markdown('<div class="stError">⚠️ No data found. Please upload your Excel file.</div>', unsafe_allow_html=True)
         return
     
     # Process data
@@ -742,7 +978,7 @@ def main():
     if 'Keyword' in df_processed.columns:
         df_processed['Keyword_Clean'] = df_processed['Keyword']
     else:
-        st.error("❌ No 'Keyword' column found in data")
+        st.markdown('<div class="stError">❌ No "Keyword" column found in data</div>', unsafe_allow_html=True)
         return
     
     # Extract language and location from sheet names
@@ -762,7 +998,7 @@ def main():
         latest_data = df_processed.groupby('Keyword_Clean').tail(1).reset_index(drop=True)
     
     # Sidebar Navigation
-    st.sidebar.markdown("## 🎛️ Navigation")
+    st.sidebar.markdown('<h2 style="color: #ffffff;">🎛️ Navigation</h2>', unsafe_allow_html=True)
     
     page = st.sidebar.radio(
         "Select Page",
@@ -773,7 +1009,7 @@ def main():
     # Filters (not for Date Comparison page)
     if page != "📅 Date Comparison":
         st.sidebar.markdown("---")
-        st.sidebar.markdown("### 🎯 Filters")
+        st.sidebar.markdown('<h3 style="color: #ffffff;">🎯 Filters</h3>', unsafe_allow_html=True)
         
         # Market filter
         if 'Market' in latest_data.columns:
@@ -816,10 +1052,10 @@ def main():
     
     # Show some debug info
     st.sidebar.markdown("---")
-    st.sidebar.markdown("### 📊 Data Info")
-    st.sidebar.write(f"Total rows: {len(df)}")
+    st.sidebar.markdown('<h3 style="color: #ffffff;">📊 Data Info</h3>', unsafe_allow_html=True)
+    st.sidebar.markdown(f'<p style="color: #ffffff;">Total rows: {len(df)}</p>', unsafe_allow_html=True)
     if 'Keyword' in df.columns:
-        st.sidebar.write(f"Unique keywords: {df['Keyword'].nunique()}")
+        st.sidebar.markdown(f'<p style="color: #ffffff;">Unique keywords: {df["Keyword"].nunique()}</p>', unsafe_allow_html=True)
     
     # Page routing
     if page == "📊 Dashboard Overview":
