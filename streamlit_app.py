@@ -282,6 +282,7 @@ def load_public_sheet_data(sheet_id):
                 
                 df['Sheet_Name'] = f'sheet_gid_{gid}'
                 
+                # Check if this looks like a keyword tracking sheet
                 if 'Keyword' in df.columns or 'Date/Time' in df.columns:
                     all_data.append(df)
                     successful_sheets += 1
@@ -295,6 +296,13 @@ def load_public_sheet_data(sheet_id):
         if all_data:
             combined_df = pd.concat(all_data, ignore_index=True)
             st.success(f"✅ Successfully loaded data from {successful_sheets} sheets")
+            
+            # Debug: show what columns we have
+            st.sidebar.write("Debug - Loaded columns:", combined_df.columns.tolist())
+            if 'Keyword' in combined_df.columns:
+                sample_keywords = combined_df['Keyword'].dropna().unique()[:5]
+                st.sidebar.write("Debug - Sample keywords:", list(sample_keywords))
+            
             return combined_df
         else:
             st.info("📊 Using sample data for demonstration")
@@ -384,7 +392,7 @@ POSITION 1:
             
             sample_data.append({
                 'Date/Time': date.strftime('%Y-%m-%d %H:%M'),
-                'Keyword': keyword,
+                'Keyword': keyword,  # This is the actual keyword name
                 'Position 1': competitors[0],
                 'Position 2': competitors[1],
                 'Position 3': competitors[2],
@@ -405,13 +413,26 @@ POSITION 1:
 # Utility functions
 def parse_sheet_info(sheet_name):
     """Extract keyword, language, and location from sheet name"""
-    parts = sheet_name.split('_')
+    # Handle sheet names like "tmobile prepaid refill number_", "recarga digi_es_es"
+    if sheet_name.startswith('sheet_gid_'):
+        return sheet_name, 'Unknown', 'Unknown'
+    
+    # Remove trailing underscore if present
+    clean_name = sheet_name.rstrip('_')
+    parts = clean_name.split('_')
+    
     if len(parts) >= 3:
+        # Last two parts are language and location
         keyword = ' '.join(parts[:-2])
-        language = parts[-2] if len(parts) >= 2 else 'Unknown'
-        location = parts[-1] if len(parts) >= 1 else 'Unknown'
+        language = parts[-2]
+        location = parts[-1]
         return keyword, language, location
-    return sheet_name, 'Unknown', 'Unknown'
+    elif len(parts) == 1:
+        # Just keyword, like "tmobile prepaid refill number"
+        return parts[0], 'Unknown', 'Unknown'
+    else:
+        # Fallback
+        return ' '.join(parts), 'Unknown', 'Unknown'
 
 def get_country_flag(location_code):
     """Get country flag emoji from location code"""
@@ -707,9 +728,35 @@ def main():
     
     # Process data
     df_processed = df.copy()
-    df_processed[['Keyword_Clean', 'Language', 'Location']] = df_processed['Sheet_Name'].apply(
-        lambda x: pd.Series(parse_sheet_info(x))
-    )
+    
+    # Debug: Show what we loaded
+    st.sidebar.write("Debug - Raw data shape:", df.shape)
+    st.sidebar.write("Debug - Raw columns:", df.columns.tolist())
+    
+    # Use actual keyword from data, not sheet name parsing
+    if 'Keyword' in df_processed.columns:
+        df_processed['Keyword_Clean'] = df_processed['Keyword']
+        st.sidebar.write("Debug - Using 'Keyword' column for Keyword_Clean")
+        sample_keywords = df_processed['Keyword'].dropna().unique()[:3]
+        st.sidebar.write("Debug - Sample keywords from data:", list(sample_keywords))
+    else:
+        # Fallback to sheet name parsing if no Keyword column
+        st.sidebar.write("Debug - No 'Keyword' column found, parsing from sheet names")
+        df_processed[['Keyword_Clean', 'Language', 'Location']] = df_processed['Sheet_Name'].apply(
+            lambda x: pd.Series(parse_sheet_info(x))
+        )
+        sample_keywords = df_processed['Keyword_Clean'].dropna().unique()[:3]
+        st.sidebar.write("Debug - Sample keywords from sheet names:", list(sample_keywords))
+    
+    # Extract language and location from sheet names
+    if 'Sheet_Name' in df_processed.columns:
+        df_processed[['Keyword_From_Sheet', 'Language', 'Location']] = df_processed['Sheet_Name'].apply(
+            lambda x: pd.Series(parse_sheet_info(x))
+        )
+    else:
+        df_processed['Language'] = 'Unknown'
+        df_processed['Location'] = 'Unknown'
+    
     df_processed['Market'] = df_processed['Location'].apply(get_country_flag)
     
     # Convert datetime
@@ -997,11 +1044,22 @@ def show_keyword_tracking(df_processed, filtered_data):
     """Individual Keyword Tracking Page"""
     st.markdown('<h2 class="section-header">📈 Individual Keyword Performance</h2>', unsafe_allow_html=True)
     
-    # Keyword selector
-    available_keywords = df_processed['Keyword_Clean'].unique() if 'Keyword_Clean' in df_processed.columns else []
+    # Debug info
+    if 'Keyword_Clean' in df_processed.columns:
+        available_keywords = df_processed['Keyword_Clean'].dropna().unique()
+        st.sidebar.write(f"Debug: Found {len(available_keywords)} keywords")
+        if len(available_keywords) > 0:
+            st.sidebar.write(f"Sample keywords: {list(available_keywords[:3])}")
+    else:
+        st.error("❌ No 'Keyword_Clean' column found in data")
+        st.write("Available columns:", df_processed.columns.tolist())
+        return
     
     if len(available_keywords) == 0:
         st.warning("No keywords found in the data.")
+        # Show some debug info
+        st.write("Data sample:")
+        st.write(df_processed.head())
         return
     
     selected_keyword = st.selectbox(
