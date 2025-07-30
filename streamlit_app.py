@@ -616,7 +616,7 @@ def show_keyword_analysis(df_processed):
         st.markdown('</div>', unsafe_allow_html=True)
 
 def show_serp_comparison(df_processed):
-    """SERP comparison view"""
+    """Professional SERP comparison view like Ahrefs"""
     
     if df_processed.empty:
         st.error("No data available.")
@@ -659,7 +659,7 @@ def show_serp_comparison(df_processed):
     
     with col1:
         selected_dt1_display = st.selectbox(
-            "Select First Time (Baseline):",
+            "📅 Baseline Date:",
             options=[opt[0] for opt in datetime_options],
             index=0,
             key="datetime1"
@@ -668,7 +668,7 @@ def show_serp_comparison(df_processed):
     
     with col2:
         selected_dt2_display = st.selectbox(
-            "Select Second Time (Comparison):",
+            "📅 Comparison Date:",
             options=[opt[0] for opt in datetime_options],
             index=len(datetime_options)-1,
             key="datetime2"
@@ -687,34 +687,441 @@ def show_serp_comparison(df_processed):
         st.error("No data found for selected times.")
         return
     
-    # Comparison results
-    st.markdown(f'<div class="section-title">🔍 SERP Comparison: {selected_keyword}</div>', unsafe_allow_html=True)
+    # Extract SERP results
+    def extract_serp_results(data_row):
+        if data_row is None:
+            return {}
+        
+        results = {}
+        for i in range(1, 11):  # Top 10 positions
+            col_name = f'Position {i}'
+            if col_name in data_row and pd.notna(data_row[col_name]) and data_row[col_name]:
+                url = str(data_row[col_name])
+                try:
+                    domain = urlparse(url).netloc.replace('www.', '')
+                    # Extract title from URL or use domain
+                    title = domain.split('.')[0].title() if domain else url[:50]
+                except:
+                    domain = url[:50] + "..." if len(url) > 50 else url
+                    title = domain
+                
+                results[i] = {
+                    'url': url,
+                    'domain': domain,
+                    'title': title,
+                    'is_recharge': 'recharge.com' in url.lower()
+                }
+        return results
     
-    # Recharge position comparison
-    col1, col2, col3 = st.columns(3)
+    serp1 = extract_serp_results(data1)
+    serp2 = extract_serp_results(data2)
     
-    pos1 = data1.get('Recharge Position', 'Unknown')
-    pos2 = data2.get('Recharge Position', 'Unknown')
+    # Track URL movements for arrows
+    url_movements = {}
+    all_urls = set()
+    
+    # Collect all URLs
+    for pos, result in serp1.items():
+        all_urls.add(result['url'])
+    for pos, result in serp2.items():
+        all_urls.add(result['url'])
+    
+    # Calculate movements
+    for url in all_urls:
+        pos1 = None
+        pos2 = None
+        
+        for pos, result in serp1.items():
+            if result['url'] == url:
+                pos1 = pos
+                break
+        
+        for pos, result in serp2.items():
+            if result['url'] == url:
+                pos2 = pos
+                break
+        
+        if pos1 is not None or pos2 is not None:
+            url_movements[url] = {'pos1': pos1, 'pos2': pos2}
+    
+    # Recharge position analysis
+    recharge_pos1 = data1.get('Recharge Position', None)
+    recharge_pos2 = data2.get('Recharge Position', None)
+    
+    # Overview metrics
+    st.markdown(f'<div class="section-title">🔍 SERP Overview: {selected_keyword}</div>', unsafe_allow_html=True)
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    # Calculate changes
+    improved = sum(1 for url, moves in url_movements.items() 
+                  if moves['pos1'] and moves['pos2'] and moves['pos1'] > moves['pos2'])
+    declined = sum(1 for url, moves in url_movements.items() 
+                  if moves['pos1'] and moves['pos2'] and moves['pos1'] < moves['pos2'])
+    new_entries = sum(1 for url, moves in url_movements.items() 
+                     if moves['pos1'] is None and moves['pos2'] is not None)
+    lost_entries = sum(1 for url, moves in url_movements.items() 
+                      if moves['pos1'] is not None and moves['pos2'] is None)
     
     with col1:
-        st.markdown(create_metric_card("Baseline Position", pos1), unsafe_allow_html=True)
+        st.markdown(f"""
+        <div class="metric-card" style="border-left: 4px solid #10b981;">
+            <div class="metric-number" style="color: #10b981;">{improved}</div>
+            <div class="metric-label">📈 Improved</div>
+        </div>
+        """, unsafe_allow_html=True)
     
     with col2:
-        st.markdown(create_metric_card("Current Position", pos2), unsafe_allow_html=True)
+        st.markdown(f"""
+        <div class="metric-card" style="border-left: 4px solid #ef4444;">
+            <div class="metric-number" style="color: #ef4444;">{declined}</div>
+            <div class="metric-label">📉 Declined</div>
+        </div>
+        """, unsafe_allow_html=True)
     
     with col3:
-        if isinstance(pos1, (int, float)) and isinstance(pos2, (int, float)):
-            change = pos1 - pos2  # Positive = improvement
+        st.markdown(f"""
+        <div class="metric-card" style="border-left: 4px solid #3b82f6;">
+            <div class="metric-number" style="color: #3b82f6;">{new_entries}</div>
+            <div class="metric-label">🆕 New</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col4:
+        st.markdown(f"""
+        <div class="metric-card" style="border-left: 4px solid #f59e0b;">
+            <div class="metric-number" style="color: #f59e0b;">{lost_entries}</div>
+            <div class="metric-label">❌ Lost</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Recharge.com Position Tracking
+    st.markdown('<div class="section-title">🔋 Recharge.com Position Analysis</div>', unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        pos1_display = f"#{int(recharge_pos1)}" if isinstance(recharge_pos1, (int, float)) else "Not Ranking"
+        st.markdown(create_metric_card("Baseline Position", pos1_display), unsafe_allow_html=True)
+    
+    with col2:
+        pos2_display = f"#{int(recharge_pos2)}" if isinstance(recharge_pos2, (int, float)) else "Not Ranking"
+        st.markdown(create_metric_card("Current Position", pos2_display), unsafe_allow_html=True)
+    
+    with col3:
+        if isinstance(recharge_pos1, (int, float)) and isinstance(recharge_pos2, (int, float)):
+            change = recharge_pos1 - recharge_pos2
             if change > 0:
-                change_text = f"📈 Improved by {change}"
+                change_text = f"📈 +{change}"
+                change_color = "#10b981"
             elif change < 0:
-                change_text = f"📉 Declined by {abs(change)}"
+                change_text = f"📉 {abs(change)}"
+                change_color = "#ef4444"
             else:
                 change_text = "➡️ No Change"
+                change_color = "#f59e0b"
         else:
             change_text = "❓ Unknown"
+            change_color = "#6b7280"
         
-        st.markdown(create_metric_card("Position Change", change_text), unsafe_allow_html=True)
+        st.markdown(f"""
+        <div class="metric-card" style="border-left: 4px solid {change_color};">
+            <div class="metric-number" style="color: {change_color};">{change_text}</div>
+            <div class="metric-label">Position Change</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Side-by-side SERP comparison (Ahrefs style)
+    st.markdown('<div class="section-title">🔍 Detailed SERP Comparison</div>', unsafe_allow_html=True)
+    
+    # Create the comparison visualization
+    st.markdown("""
+    <style>
+    .serp-container {
+        display: flex;
+        gap: 2rem;
+        margin: 1rem 0;
+    }
+    
+    .serp-column {
+        flex: 1;
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 15px;
+        padding: 1.5rem;
+    }
+    
+    .serp-header {
+        text-align: center;
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin-bottom: 1.5rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid rgba(255, 255, 255, 0.3);
+        color: #ffffff;
+    }
+    
+    .serp-result {
+        display: flex;
+        align-items: flex-start;
+        margin-bottom: 1rem;
+        padding: 1rem;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 10px;
+        border-left: 4px solid #667eea;
+        transition: all 0.2s ease;
+    }
+    
+    .serp-result:hover {
+        background: rgba(255, 255, 255, 0.1);
+        transform: translateX(5px);
+    }
+    
+    .serp-result.recharge {
+        border-left-color: #f59e0b;
+        background: rgba(245, 158, 11, 0.1);
+    }
+    
+    .serp-result.improved {
+        border-left-color: #10b981;
+        background: rgba(16, 185, 129, 0.1);
+    }
+    
+    .serp-result.declined {
+        border-left-color: #ef4444;
+        background: rgba(239, 68, 68, 0.1);
+    }
+    
+    .serp-result.new {
+        border-left-color: #3b82f6;
+        background: rgba(59, 130, 246, 0.1);
+    }
+    
+    .position-number {
+        min-width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        margin-right: 1rem;
+        font-size: 14px;
+        color: white;
+    }
+    
+    .result-content {
+        flex: 1;
+    }
+    
+    .result-title {
+        font-weight: 600;
+        margin-bottom: 0.3rem;
+        color: #ffffff;
+        font-size: 0.95rem;
+        line-height: 1.3;
+    }
+    
+    .result-url {
+        font-size: 0.8rem;
+        color: rgba(255, 255, 255, 0.7);
+        word-break: break-all;
+        margin-bottom: 0.3rem;
+    }
+    
+    .result-badge {
+        display: inline-block;
+        padding: 0.2rem 0.5rem;
+        border-radius: 12px;
+        font-size: 0.7rem;
+        font-weight: bold;
+        margin-top: 0.3rem;
+    }
+    
+    .badge-recharge {
+        background: #f59e0b;
+        color: white;
+    }
+    
+    .badge-improved {
+        background: #10b981;
+        color: white;
+    }
+    
+    .badge-declined {
+        background: #ef4444;
+        color: white;
+    }
+    
+    .badge-new {
+        background: #3b82f6;
+        color: white;
+    }
+    
+    .badge-lost {
+        background: #f59e0b;
+        color: white;
+    }
+    
+    .change-indicator {
+        min-width: 60px;
+        text-align: center;
+        font-size: 0.8rem;
+        font-weight: bold;
+        padding: 0.3rem 0.6rem;
+        border-radius: 12px;
+        margin-left: 0.5rem;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # Create side-by-side comparison
+    col_left, col_right = st.columns(2)
+    
+    with col_left:
+        st.markdown(f"""
+        <div class="serp-column">
+            <div class="serp-header">📅 {selected_dt1.strftime('%b %d, %Y at %I:%M %p')}</div>
+        """, unsafe_allow_html=True)
+        
+        # Show baseline SERP results
+        for position in range(1, 11):
+            if position in serp1:
+                result = serp1[position]
+                result_class = "recharge" if result['is_recharge'] else ""
+                position_color = "#f59e0b" if result['is_recharge'] else "#667eea"
+                
+                st.markdown(f"""
+                <div class="serp-result {result_class}">
+                    <div class="position-number" style="background: {position_color};">
+                        {position}
+                    </div>
+                    <div class="result-content">
+                        <div class="result-title">{result['title']}</div>
+                        <div class="result-url">{result['url'][:80]}{'...' if len(result['url']) > 80 else ''}</div>
+                        {f'<span class="result-badge badge-recharge">🔋 Recharge.com</span>' if result['is_recharge'] else ''}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                <div class="serp-result" style="opacity: 0.3;">
+                    <div class="position-number" style="background: #6b7280;">
+                        {position}
+                    </div>
+                    <div class="result-content">
+                        <div class="result-title">No result</div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+        
+        st.markdown("</div>", unsafe_allow_html=True)
+    
+    with col_right:
+        st.markdown(f"""
+        <div class="serp-column">
+            <div class="serp-header">📅 {selected_dt2.strftime('%b %d, %Y at %I:%M %p')}</div>
+        """, unsafe_allow_html=True)
+        
+        # Show comparison SERP results with change indicators
+        for position in range(1, 11):
+            if position in serp2:
+                result = serp2[position]
+                url = result['url']
+                movement = url_movements.get(url, {})
+                pos1 = movement.get('pos1')
+                pos2 = movement.get('pos2')
+                
+                # Determine change type and styling
+                if pos1 is None:
+                    change_class = "new"
+                    change_text = "🆕 NEW"
+                    change_color = "#3b82f6"
+                elif pos1 and pos2 and pos1 > pos2:
+                    change_class = "improved"
+                    change_text = f"📈 +{pos1 - pos2}"
+                    change_color = "#10b981"
+                elif pos1 and pos2 and pos1 < pos2:
+                    change_class = "declined"
+                    change_text = f"📉 -{pos2 - pos1}"
+                    change_color = "#ef4444"
+                else:
+                    change_class = "recharge" if result['is_recharge'] else ""
+                    change_text = ""
+                    change_color = "#f59e0b" if result['is_recharge'] else "#667eea"
+                
+                st.markdown(f"""
+                <div class="serp-result {change_class}">
+                    <div class="position-number" style="background: {change_color};">
+                        {position}
+                    </div>
+                    <div class="result-content">
+                        <div class="result-title">{result['title']}</div>
+                        <div class="result-url">{result['url'][:80]}{'...' if len(result['url']) > 80 else ''}</div>
+                        {f'<span class="result-badge badge-recharge">🔋 Recharge.com</span>' if result['is_recharge'] else ''}
+                        {f'<span class="result-badge badge-{change_class}">{change_text}</span>' if change_text else ''}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                <div class="serp-result" style="opacity: 0.3;">
+                    <div class="position-number" style="background: #6b7280;">
+                        {position}
+                    </div>
+                    <div class="result-content">
+                        <div class="result-title">No result</div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+        
+        st.markdown("</div>", unsafe_allow_html=True)
+    
+    # AI Overview Comparison
+    st.markdown('<div class="section-title">🤖 AI Overview Comparison</div>', unsafe_allow_html=True)
+    
+    col_ai1, col_ai2 = st.columns(2)
+    
+    with col_ai1:
+        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+        st.markdown(f'**📅 {selected_dt1.strftime("%b %d, %Y at %I:%M %p")}**')
+        
+        ai_content1 = data1.get('AI Overview', '')
+        if has_ai_overview(ai_content1):
+            st.markdown("**🤖 AI Overview Present**")
+            st.text_area(
+                "AI Overview Content",
+                ai_content1,
+                height=200,
+                key="ai_content_1",
+                label_visibility="collapsed"
+            )
+        else:
+            st.markdown("**❌ No AI Overview**")
+            st.info("No AI Overview content was present at this time.")
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    with col_ai2:
+        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+        st.markdown(f'**📅 {selected_dt2.strftime("%b %d, %Y at %I:%M %p")}**')
+        
+        ai_content2 = data2.get('AI Overview', '')
+        if has_ai_overview(ai_content2):
+            st.markdown("**🤖 AI Overview Present**")
+            st.text_area(
+                "AI Overview Content",
+                ai_content2,
+                height=200,
+                key="ai_content_2",
+                label_visibility="collapsed"
+            )
+        else:
+            st.markdown("**❌ No AI Overview**")
+            st.info("No AI Overview content was present at this time.")
+        
+        st.markdown('</div>', unsafe_allow_html=True)
 
 def main():
     # Load data
