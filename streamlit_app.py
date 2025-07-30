@@ -13,7 +13,7 @@ st.set_page_config(
     page_title="Recharge.com Ranking Dashboard",
     page_icon="🔋",
     layout="wide",
-    initial_sidebar_state="expanded"  # Sidebar open by default
+    initial_sidebar_state="expanded"
 )
 
 # Enhanced CSS for better styling
@@ -44,6 +44,11 @@ st.markdown("""
     }
     
     .css-1d391kg .stCheckbox label {
+        color: white !important;
+        font-weight: 500;
+    }
+    
+    .css-1d391kg .stDateInput label {
         color: white !important;
         font-weight: 500;
     }
@@ -146,64 +151,34 @@ st.markdown("""
         box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
     }
     
-    /* Expander Styling */
-    .streamlit-expanderHeader {
-        background: #f8fafc;
-        border-radius: 8px;
-        font-family: 'Inter', sans-serif;
-        font-weight: 500;
-        padding: 0.75rem;
-    }
-    
-    .streamlit-expanderContent {
+    /* Date Comparison Cards */
+    .comparison-card {
         background: white;
-        border: 1px solid #e5e7eb;
-        border-radius: 0 0 8px 8px;
-        padding: 1rem;
-    }
-    
-    /* Status Badges */
-    .status-badge {
-        display: inline-block;
-        padding: 0.25rem 0.75rem;
-        border-radius: 20px;
-        font-size: 0.8rem;
-        font-weight: 600;
-        font-family: 'Inter', sans-serif;
-    }
-    
-    .status-top3 {
-        background: #dcfce7;
-        color: #166534;
-    }
-    
-    .status-mid {
-        background: #fef3c7;
-        color: #92400e;
-    }
-    
-    .status-poor {
-        background: #fee2e2;
-        color: #dc2626;
-    }
-    
-    .status-ai {
-        background: #dbeafe;
-        color: #1d4ed8;
-    }
-    
-    /* Navigation */
-    .nav-pills {
-        background: #f1f5f9;
-        padding: 0.5rem;
         border-radius: 12px;
-        margin-bottom: 2rem;
-    }
-    
-    /* Charts */
-    .plotly-graph-div {
-        border-radius: 12px;
+        padding: 1.5rem;
         box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+        margin-bottom: 1rem;
+        border-left: 4px solid #667eea;
+    }
+    
+    .comparison-improved {
+        border-left: 4px solid #10b981;
+        background: linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%);
+    }
+    
+    .comparison-declined {
+        border-left: 4px solid #ef4444;
+        background: linear-gradient(135deg, #fef2f2 0%, #fefcfc 100%);
+    }
+    
+    .comparison-new {
+        border-left: 4px solid #3b82f6;
+        background: linear-gradient(135deg, #eff6ff 0%, #f0f9ff 100%);
+    }
+    
+    .comparison-lost {
+        border-left: 4px solid #f59e0b;
+        background: linear-gradient(135deg, #fffbeb 0%, #fefcf0 100%);
     }
     
     /* Alert Boxes */
@@ -233,41 +208,39 @@ st.markdown("""
         color: #dc2626;
         font-family: 'Inter', sans-serif;
     }
+    
+    .alert-info {
+        background: #dbeafe;
+        border: 1px solid #93c5fd;
+        border-radius: 8px;
+        padding: 1rem;
+        color: #1d4ed8;
+        font-family: 'Inter', sans-serif;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# Google Sheets connection for PUBLIC sheet
+# Data loading functions
 @st.cache_data(ttl=300)
 def load_data_from_sheets():
     """Load data from PUBLIC Google Sheets"""
     try:
-        # Since the sheet is public, we can access it directly
         sheet_id = "1hOMEaZ_zfliPxJ7N-9EJ64KvyRl9J-feoR30GB-bI_o"
         
-        # Get all sheet names first
-        sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/edit"
-        
-        # Use gspread without authentication for public sheets
-        import gspread
-        gc = gspread.service_account_from_dict({})  # Empty dict for public access
-        
         try:
-            # Try with authentication first (if secrets exist)
             if hasattr(st, 'secrets') and 'gcp_service_account' in st.secrets:
                 credentials_dict = st.secrets["gcp_service_account"]
                 credentials = Credentials.from_service_account_info(credentials_dict, scopes=['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive'])
                 gc = gspread.authorize(credentials)
             else:
-                # Use public access method
-                gc = gspread.service_account_from_dict({})
+                return load_public_sheet_data(sheet_id)
         except:
-            # Fallback to direct CSV method for public sheets
             return load_public_sheet_data(sheet_id)
         
+        sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/edit"
         spreadsheet = gc.open_by_url(sheet_url)
         worksheets = spreadsheet.worksheets()
         
-        # Filter out admin sheets
         keyword_sheets = [ws for ws in worksheets if ws.title not in ['Main', 'ADMIN', '⚙️ ADMIN']]
         
         all_data = []
@@ -295,13 +268,7 @@ def load_data_from_sheets():
 def load_public_sheet_data(sheet_id):
     """Load data from public Google Sheet using CSV export"""
     try:
-        # Get list of all sheets by trying to access the main sheet first
-        base_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv"
-        
-        # Try to get sheet names by accessing different gids
-        # Common gids to try (you can add more if needed)
-        potential_gids = [0, 1933593504, 1, 2, 3, 4, 5]  # Including your specific gid
-        
+        potential_gids = [0, 1933593504, 1, 2, 3, 4, 5]
         all_data = []
         successful_sheets = 0
         
@@ -310,19 +277,15 @@ def load_public_sheet_data(sheet_id):
                 csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
                 df = pd.read_csv(csv_url)
                 
-                # Skip if sheet is empty or has no meaningful data
                 if df.empty or len(df.columns) < 5:
                     continue
                 
-                # Add sheet identifier
                 df['Sheet_Name'] = f'sheet_gid_{gid}'
                 
-                # Try to identify sheet by content
                 if 'Keyword' in df.columns or 'Date/Time' in df.columns:
                     all_data.append(df)
                     successful_sheets += 1
                 
-                # Limit to prevent too many requests
                 if successful_sheets >= 10:
                     break
                     
@@ -334,19 +297,20 @@ def load_public_sheet_data(sheet_id):
             st.success(f"✅ Successfully loaded data from {successful_sheets} sheets")
             return combined_df
         else:
-            # Return sample data if no sheets found
             st.info("📊 Using sample data for demonstration")
-            return get_sample_data()
+            return get_enhanced_sample_data()
             
     except Exception as e:
         st.error(f"Could not load public sheet data: {e}")
         st.info("📊 Using sample data for demonstration")
-        return get_sample_data()
+        return get_enhanced_sample_data()
 
 def get_enhanced_sample_data():
-    """Enhanced sample data that better represents your actual data structure"""
-    np.random.seed(42)  # For consistent sample data
-    dates = pd.date_range('2024-01-01', periods=50, freq='8H')
+    """Enhanced sample data with multiple dates for comparison"""
+    np.random.seed(42)
+    
+    # Create data for multiple dates
+    dates = pd.date_range('2025-07-25', periods=6, freq='D')  # 6 days of data
     
     keywords_data = [
         ('recarga digi', 'es', 'es', '🇪🇸 Spain'),
@@ -363,22 +327,31 @@ def get_enhanced_sample_data():
     
     for date in dates:
         for keyword, lang, loc, market in keywords_data:
-            # Simulate realistic position changes
+            # Simulate position evolution over time
             base_position = np.random.choice([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20], p=[0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.05, 0.05, 0.05, 0.05])
             
+            # Add some position drift over time
+            date_index = list(dates).index(date)
+            position_drift = np.random.choice([-2, -1, 0, 1, 2], p=[0.1, 0.2, 0.4, 0.2, 0.1])
+            position = max(1, min(20, base_position + (date_index * 0.5) + position_drift))
+            
             # Simulate position changes
-            change_type = np.random.choice(['Stable', 'Improved (+1)', 'Improved (+2)', 'Declined (-1)', 'Declined (-2)', 'New', 'Lost'], 
-                                         p=[0.4, 0.15, 0.1, 0.15, 0.1, 0.05, 0.05])
-            
-            if 'Lost' in change_type:
-                position = 'Not Ranking'
-            elif base_position > 10:
-                position = 'Not Ranking' if np.random.random() > 0.7 else base_position
+            if date_index == 0:
+                change_type = 'New'
             else:
-                position = base_position
+                change_options = ['Stable', 'Improved (+1)', 'Improved (+2)', 'Declined (-1)', 'Declined (-2)']
+                change_probs = [0.5, 0.15, 0.1, 0.15, 0.1]
+                change_type = np.random.choice(change_options, p=change_probs)
             
-            # AI Overview simulation
-            ai_present = np.random.choice([True, False], p=[0.25, 0.75])
+            # Position can become "Not Ranking" sometimes
+            if position > 15 and np.random.random() > 0.7:
+                position = 'Not Ranking'
+                change_type = 'Lost' if date_index > 0 else 'New'
+            
+            # AI Overview simulation with evolution
+            ai_probability = 0.2 + (date_index * 0.05)  # Increasing AI presence over time
+            ai_present = np.random.choice([True, False], p=[ai_probability, 1-ai_probability])
+            
             ai_links = ""
             if ai_present:
                 ai_links = f"https://example1.com/ai-source-{keyword.replace(' ', '-')}\nhttps://example2.com/reference-{keyword.replace(' ', '-')}"
@@ -399,37 +372,14 @@ def get_enhanced_sample_data():
             full_results = f"""--- AI OVERVIEW SECTION ---
 CONTENT:
 {'Comprehensive guide for ' + keyword + '. Step-by-step instructions and best practices for ' + keyword + ' in ' + market + '. This includes detailed information about the process and recommended approaches.' if ai_present else 'No AI Overview detected for this search.'}
-
 SOURCE LINKS (from source_panel):
 {ai_links if ai_present else 'No source links available'}
-
 --- END AI OVERVIEW ---
-
 --- ORGANIC SEARCH RESULTS ---
 POSITION 1:
   Title: {keyword.title()} - Complete Guide | {competitors[0].split('/')[2].title()}
   URL: {competitors[0]}
   Description: Everything you need to know about {keyword}. Comprehensive guide with step-by-step instructions.
-
-POSITION 2:
-  Title: How to {keyword.title()} - Best Practices
-  URL: {competitors[1]}
-  Description: Learn the best methods for {keyword}. Expert tips and recommendations.
-
-POSITION 3:
-  Title: {keyword.title()} Services | {competitors[2].split('/')[2].title()}
-  URL: {competitors[2]}
-  Description: Professional {keyword} services. Fast, reliable, and secure solutions.
-
-POSITION 4:
-  Title: {keyword.title()} Online Platform
-  URL: {competitors[3]}
-  Description: Online platform for {keyword}. Easy to use interface with instant results.
-
-POSITION 5:
-  Title: {keyword.title()} - {competitors[4].split('/')[2].title()}
-  URL: {competitors[4]}
-  Description: Trusted provider for {keyword}. Competitive rates and excellent customer service.
 """
             
             sample_data.append({
@@ -452,10 +402,7 @@ POSITION 5:
     
     return pd.DataFrame(sample_data)
 
-def get_sample_data():
-    """Sample data for demo purposes - delegates to enhanced version"""
-    return get_enhanced_sample_data()
-
+# Utility functions
 def parse_sheet_info(sheet_name):
     """Extract keyword, language, and location from sheet name"""
     parts = sheet_name.split('_')
@@ -509,6 +456,238 @@ def get_trend_emoji(change):
     else:
         return '➡️'
 
+def calculate_position_change(pos1, pos2):
+    """Calculate position change between two positions"""
+    # Handle 'Not Ranking' cases
+    if str(pos1).lower() in ['not ranking', 'lost', ''] or pd.isna(pos1):
+        pos1_val = None
+    else:
+        try:
+            pos1_val = int(pos1)
+        except:
+            pos1_val = None
+    
+    if str(pos2).lower() in ['not ranking', 'lost', ''] or pd.isna(pos2):
+        pos2_val = None
+    else:
+        try:
+            pos2_val = int(pos2)
+        except:
+            pos2_val = None
+    
+    # Calculate change
+    if pos1_val is None and pos2_val is None:
+        return 0, "No change (both not ranking)"
+    elif pos1_val is None and pos2_val is not None:
+        return float('inf'), f"New ranking at #{pos2_val}"
+    elif pos1_val is not None and pos2_val is None:
+        return float('-inf'), f"Lost ranking (was #{pos1_val})"
+    else:
+        change = pos1_val - pos2_val  # Positive = improvement (lower position number)
+        if change > 0:
+            return change, f"Improved by {change} positions (#{pos1_val} → #{pos2_val})"
+        elif change < 0:
+            return change, f"Declined by {abs(change)} positions (#{pos1_val} → #{pos2_val})"
+        else:
+            return 0, f"No change (#{pos1_val})"
+
+# Date comparison functionality
+def show_date_comparison(df_processed):
+    """Enhanced Date Comparison Page"""
+    st.markdown('<h2 class="section-header">📅 Date Comparison Analysis</h2>', unsafe_allow_html=True)
+    
+    # Get available dates
+    if 'DateTime' in df_processed.columns:
+        df_processed['Date'] = df_processed['DateTime'].dt.date
+        available_dates = sorted(df_processed['Date'].unique())
+        
+        if len(available_dates) < 2:
+            st.warning("⚠️ Need at least 2 different dates for comparison. Current data only contains dates from a single day.")
+            st.info("💡 This feature will be most useful when you have historical data spanning multiple days/weeks.")
+            return
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            date1 = st.date_input(
+                "📅 Select First Date (Baseline)",
+                value=available_dates[0],
+                min_value=available_dates[0],
+                max_value=available_dates[-1],
+                key="date1"
+            )
+        
+        with col2:
+            date2 = st.date_input(
+                "📅 Select Second Date (Comparison)",
+                value=available_dates[-1],
+                min_value=available_dates[0],
+                max_value=available_dates[-1],
+                key="date2"
+            )
+        
+        if date1 == date2:
+            st.warning("⚠️ Please select two different dates for comparison.")
+            return
+        
+        # Filter data for selected dates
+        data1 = df_processed[df_processed['Date'] == date1].copy()
+        data2 = df_processed[df_processed['Date'] == date2].copy()
+        
+        if data1.empty or data2.empty:
+            st.error("❌ No data found for one or both selected dates.")
+            return
+        
+        # Perform comparison
+        st.markdown(f'<h3 class="section-header">📊 Comparison Results: {date1} vs {date2}</h3>', unsafe_allow_html=True)
+        
+        # Merge data for comparison
+        comparison_data = []
+        
+        # Get all unique keywords from both dates
+        all_keywords = set(data1['Keyword_Clean'].unique()) | set(data2['Keyword_Clean'].unique())
+        
+        for keyword in all_keywords:
+            kw_data1 = data1[data1['Keyword_Clean'] == keyword]
+            kw_data2 = data2[data2['Keyword_Clean'] == keyword]
+            
+            pos1 = kw_data1['Recharge Position'].iloc[0] if not kw_data1.empty else 'Not Ranking'
+            pos2 = kw_data2['Recharge Position'].iloc[0] if not kw_data2.empty else 'Not Ranking'
+            
+            ai1 = kw_data1['AI Overview'].iloc[0] if not kw_data1.empty else 'No'
+            ai2 = kw_data2['AI Overview'].iloc[0] if not kw_data2.empty else 'No'
+            
+            market = kw_data1['Market'].iloc[0] if not kw_data1.empty else (kw_data2['Market'].iloc[0] if not kw_data2.empty else 'Unknown')
+            
+            change_val, change_desc = calculate_position_change(pos1, pos2)
+            
+            # AI Overview change
+            ai_change = ""
+            if str(ai1).lower() in ['yes', 'y', 'true'] and str(ai2).lower() not in ['yes', 'y', 'true']:
+                ai_change = "Lost AI Overview"
+            elif str(ai1).lower() not in ['yes', 'y', 'true'] and str(ai2).lower() in ['yes', 'y', 'true']:
+                ai_change = "Gained AI Overview"
+            elif str(ai1).lower() in ['yes', 'y', 'true'] and str(ai2).lower() in ['yes', 'y', 'true']:
+                ai_change = "AI Overview maintained"
+            else:
+                ai_change = "No AI Overview"
+            
+            comparison_data.append({
+                'Keyword': keyword,
+                'Market': market,
+                'Position_Date1': pos1,
+                'Position_Date2': pos2,
+                'Change_Value': change_val,
+                'Change_Description': change_desc,
+                'AI_Date1': ai1,
+                'AI_Date2': ai2,
+                'AI_Change': ai_change
+            })
+        
+        comparison_df = pd.DataFrame(comparison_data)
+        
+        # Summary metrics
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            improved = len(comparison_df[comparison_df['Change_Value'] > 0])
+            st.metric("📈 Improved Rankings", improved, f"{improved/len(comparison_df)*100:.1f}% of keywords")
+        
+        with col2:
+            declined = len(comparison_df[comparison_df['Change_Value'] < 0])
+            st.metric("📉 Declined Rankings", declined, f"{declined/len(comparison_df)*100:.1f}% of keywords")
+        
+        with col3:
+            new_rankings = len(comparison_df[comparison_df['Change_Value'] == float('inf')])
+            st.metric("🆕 New Rankings", new_rankings)
+        
+        with col4:
+            lost_rankings = len(comparison_df[comparison_df['Change_Value'] == float('-inf')])
+            st.metric("❌ Lost Rankings", lost_rankings)
+        
+        # AI Overview changes
+        st.markdown('<h3 class="section-header">🤖 AI Overview Changes</h3>', unsafe_allow_html=True)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            gained_ai = len(comparison_df[comparison_df['AI_Change'] == 'Gained AI Overview'])
+            st.metric("🤖 Gained AI Overview", gained_ai)
+        
+        with col2:
+            lost_ai = len(comparison_df[comparison_df['AI_Change'] == 'Lost AI Overview'])
+            st.metric("🚫 Lost AI Overview", lost_ai)
+        
+        # Detailed comparison table
+        st.markdown('<h3 class="section-header">📋 Detailed Comparison Table</h3>', unsafe_allow_html=True)
+        
+        # Sort by change value (most improved first)
+        comparison_df_sorted = comparison_df.sort_values('Change_Value', ascending=False)
+        
+        # Color-code the changes
+        def style_changes(row):
+            if row['Change_Value'] == float('inf'):
+                return ['background-color: #ecfdf5'] * len(row)
+            elif row['Change_Value'] == float('-inf'):
+                return ['background-color: #fef2f2'] * len(row)
+            elif row['Change_Value'] > 0:
+                return ['background-color: #f0fdf4'] * len(row)
+            elif row['Change_Value'] < 0:
+                return ['background-color: #fefcfc'] * len(row)
+            else:
+                return ['background-color: white'] * len(row)
+        
+        # Display styled dataframe
+        display_df = comparison_df_sorted[['Keyword', 'Market', 'Position_Date1', 'Position_Date2', 'Change_Description', 'AI_Change']].copy()
+        display_df.columns = ['Keyword', 'Market', f'Position {date1}', f'Position {date2}', 'Change', 'AI Overview Change']
+        
+        st.dataframe(display_df, use_container_width=True, hide_index=True)
+        
+        # Visualization
+        st.markdown('<h3 class="section-header">📊 Position Changes Visualization</h3>', unsafe_allow_html=True)
+        
+        # Filter out infinite values for visualization
+        viz_data = comparison_df[
+            (comparison_df['Change_Value'] != float('inf')) & 
+            (comparison_df['Change_Value'] != float('-inf'))
+        ].copy()
+        
+        if not viz_data.empty:
+            fig = px.bar(
+                viz_data.sort_values('Change_Value'),
+                x='Change_Value',
+                y='Keyword',
+                orientation='h',
+                title=f'Position Changes: {date1} → {date2}',
+                labels={'Change_Value': 'Position Change (Positive = Improvement)', 'Keyword': 'Keywords'},
+                color='Change_Value',
+                color_continuous_scale=['red', 'white', 'green'],
+                color_continuous_midpoint=0
+            )
+            
+            fig.update_layout(
+                height=max(400, len(viz_data) * 25),
+                font_family="Inter",
+                showlegend=False
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+        
+        # Export comparison results
+        st.markdown('<h3 class="section-header">📥 Export Results</h3>', unsafe_allow_html=True)
+        
+        csv_data = comparison_df.to_csv(index=False)
+        st.download_button(
+            label="📥 Download Comparison Results as CSV",
+            data=csv_data,
+            file_name=f"ranking_comparison_{date1}_vs_{date2}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            mime="text/csv"
+        )
+        
+    else:
+        st.error("❌ No date information found in the data.")
+
+# Main navigation and pages
 def main():
     # Header
     st.markdown("""
@@ -549,64 +728,60 @@ def main():
     
     page = st.sidebar.radio(
         "Select Page",
-        ["📊 Dashboard Overview", "📈 Keyword Tracking", "🤖 AI Overview Analysis", "🔍 Detailed Reports"],
+        ["📊 Dashboard Overview", "📈 Keyword Tracking", "🤖 AI Overview Analysis", "📅 Date Comparison", "🔍 Detailed Reports"],
         key="main_nav"
     )
     
-    # Filters (always visible)
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("### 🎯 Filters")
-    
-    # Market filter
-    markets = ['All Markets'] + sorted(latest_data['Market'].unique().tolist())
-    selected_market = st.sidebar.selectbox("🌍 Market", markets)
-    
-    # Position filter
-    position_options = ['All Positions', 'Top 3 (1-3)', 'Positions 4-10', 'Not Ranking']
-    selected_position = st.sidebar.selectbox("📍 Position Range", position_options)
-    
-    # AI Overview filter
-    ai_options = ['All', 'With AI Overview', 'Without AI Overview']
-    selected_ai = st.sidebar.selectbox("🤖 AI Overview Status", ai_options)
-    
-    # Time filter
-    if 'DateTime' in df_processed.columns:
-        date_range = st.sidebar.selectbox(
-            "📅 Time Period",
-            ['Last 7 days', 'Last 30 days', 'Last 90 days', 'All time']
-        )
-    
-    # Apply filters
-    filtered_data = latest_data.copy()
-    
-    if selected_market != 'All Markets':
-        filtered_data = filtered_data[filtered_data['Market'] == selected_market]
-    
-    if 'Recharge Position' in filtered_data.columns:
-        if selected_position == 'Top 3 (1-3)':
-            filtered_data = filtered_data[
-                filtered_data['Recharge Position'].apply(
-                    lambda x: isinstance(x, (int, float)) and 1 <= x <= 3
-                )
-            ]
-        elif selected_position == 'Positions 4-10':
-            filtered_data = filtered_data[
-                filtered_data['Recharge Position'].apply(
-                    lambda x: isinstance(x, (int, float)) and 4 <= x <= 10
-                )
-            ]
-        elif selected_position == 'Not Ranking':
-            filtered_data = filtered_data[
-                filtered_data['Recharge Position'].apply(
-                    lambda x: str(x).lower() in ['not ranking', 'lost', ''] or pd.isna(x)
-                )
-            ]
-    
-    if 'AI Overview' in filtered_data.columns:
-        if selected_ai == 'With AI Overview':
-            filtered_data = filtered_data[filtered_data['AI Overview'].str.lower().isin(['yes', 'y', 'true'])]
-        elif selected_ai == 'Without AI Overview':
-            filtered_data = filtered_data[~filtered_data['AI Overview'].str.lower().isin(['yes', 'y', 'true'])]
+    # Filters (always visible except for Date Comparison page)
+    if page != "📅 Date Comparison":
+        st.sidebar.markdown("---")
+        st.sidebar.markdown("### 🎯 Filters")
+        
+        # Market filter
+        markets = ['All Markets'] + sorted(latest_data['Market'].unique().tolist())
+        selected_market = st.sidebar.selectbox("🌍 Market", markets)
+        
+        # Position filter
+        position_options = ['All Positions', 'Top 3 (1-3)', 'Positions 4-10', 'Not Ranking']
+        selected_position = st.sidebar.selectbox("📍 Position Range", position_options)
+        
+        # AI Overview filter
+        ai_options = ['All', 'With AI Overview', 'Without AI Overview']
+        selected_ai = st.sidebar.selectbox("🤖 AI Overview Status", ai_options)
+        
+        # Apply filters
+        filtered_data = latest_data.copy()
+        
+        if selected_market != 'All Markets':
+            filtered_data = filtered_data[filtered_data['Market'] == selected_market]
+        
+        if 'Recharge Position' in filtered_data.columns:
+            if selected_position == 'Top 3 (1-3)':
+                filtered_data = filtered_data[
+                    filtered_data['Recharge Position'].apply(
+                        lambda x: isinstance(x, (int, float)) and 1 <= x <= 3
+                    )
+                ]
+            elif selected_position == 'Positions 4-10':
+                filtered_data = filtered_data[
+                    filtered_data['Recharge Position'].apply(
+                        lambda x: isinstance(x, (int, float)) and 4 <= x <= 10
+                    )
+                ]
+            elif selected_position == 'Not Ranking':
+                filtered_data = filtered_data[
+                    filtered_data['Recharge Position'].apply(
+                        lambda x: str(x).lower() in ['not ranking', 'lost', ''] or pd.isna(x)
+                    )
+                ]
+        
+        if 'AI Overview' in filtered_data.columns:
+            if selected_ai == 'With AI Overview':
+                filtered_data = filtered_data[filtered_data['AI Overview'].str.lower().isin(['yes', 'y', 'true'])]
+            elif selected_ai == 'Without AI Overview':
+                filtered_data = filtered_data[~filtered_data['AI Overview'].str.lower().isin(['yes', 'y', 'true'])]
+    else:
+        filtered_data = latest_data.copy()
     
     # Page routing
     if page == "📊 Dashboard Overview":
@@ -615,6 +790,8 @@ def main():
         show_keyword_tracking(df_processed, filtered_data)
     elif page == "🤖 AI Overview Analysis":
         show_ai_overview_analysis(df_processed, filtered_data)
+    elif page == "📅 Date Comparison":
+        show_date_comparison(df_processed)
     elif page == "🔍 Detailed Reports":
         show_detailed_reports(df_processed, filtered_data)
 
