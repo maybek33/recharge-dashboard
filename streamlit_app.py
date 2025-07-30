@@ -825,7 +825,7 @@ def show_date_comparison(df_processed):
     if not selected_keyword:
         return
     
-    # Get available datetimes for selected keyword only - FIXED: Show actual times, not just dates
+    # Get available datetimes for selected keyword only - Show actual times from data
     if 'DateTime' in df_processed.columns:
         keyword_data = df_processed[df_processed['Keyword'] == selected_keyword].copy()
         available_datetimes = sorted(keyword_data['DateTime'].dropna().unique())
@@ -833,15 +833,24 @@ def show_date_comparison(df_processed):
         if len(available_datetimes) < 2:
             st.markdown('<div class="stWarning">⚠️ Need at least 2 different times for comparison for this keyword.</div>', unsafe_allow_html=True)
             st.markdown('<div class="stInfo">💡 This feature will be most useful when you have multiple data points.</div>', unsafe_allow_html=True)
+            
+            # Show what times we do have for this keyword
+            if len(available_datetimes) > 0:
+                st.markdown('<h4 style="color: #ffffff;">Available data times for this keyword:</h4>', unsafe_allow_html=True)
+                for dt in available_datetimes:
+                    if hasattr(dt, 'strftime'):
+                        st.markdown(f'<p style="color: #a0a9c0;">📅 {dt.strftime("%b %d, %Y at %I:%M:%S %p")}</p>', unsafe_allow_html=True)
             return
         
-        # Convert to readable format for display - show actual times
+        # Convert to readable format for display - show actual times with more detail
         datetime_options = []
         for dt in available_datetimes:
             if hasattr(dt, 'strftime'):
                 # Format: "Jul 30, 2025 at 10:19:18 AM" 
                 display_time = dt.strftime('%b %d, %Y at %I:%M:%S %p')
                 datetime_options.append((display_time, dt))
+        
+        st.markdown(f'<p style="color: #10b981;">✅ Found {len(datetime_options)} data points for "{selected_keyword}"</p>', unsafe_allow_html=True)
         
         col1, col2 = st.columns(2)
         
@@ -1261,6 +1270,16 @@ def main():
     
     # File upload section
     st.markdown('<h3 style="color: #ffffff;">📁 Upload Your Position Tracking Data</h3>', unsafe_allow_html=True)
+    
+    # Add helpful info about expected format
+    with st.expander("💡 Expected File Format", expanded=False):
+        st.markdown("""
+        **Expected Excel file structure:**
+        - Multiple sheets (one per keyword)
+        - Each sheet should have columns like: `Date/Time`, `Keyword`, `Recharge Position`, `AI Overview`, etc.
+        - Date/Time formats supported: `7/30/2025, 10:19:18 AM`, `7/30/2025 10:19:18 AM`, `2025-07-30 10:19:18`
+        """)
+    
     uploaded_file = st.file_uploader(
         "Choose your Position tracking Excel file",
         type=['xlsx', 'xls'],
@@ -1299,44 +1318,71 @@ def main():
         if 'Market' not in df_processed.columns:
             df_processed['Market'] = df_processed['Location'].apply(get_country_flag)
     
-    # Convert datetime - FIXED: Handle various datetime formats including "7/30/2025, 10:19:18 AM"
+    # Initialize parsing_info
+    parsing_info = None
+    
+    # Convert datetime - IMPROVED: Handle various datetime formats including "7/30/2025, 10:19:18 AM"
     if 'Date/Time' in df_processed.columns:
-        # Try multiple datetime formats to handle user's specific format
+        # Improved datetime parsing function
         def parse_datetime_flexible(date_str):
             if pd.isna(date_str):
                 return pd.NaT
             
+            # Convert to string and clean up
             date_str = str(date_str).strip()
             
-            # List of possible formats to try
+            # First try pandas auto-parsing (often works best)
+            try:
+                parsed = pd.to_datetime(date_str, infer_datetime_format=True)
+                if not pd.isna(parsed):
+                    return parsed
+            except:
+                pass
+            
+            # List of specific formats to try
             formats = [
                 '%m/%d/%Y, %I:%M:%S %p',  # 7/30/2025, 10:19:18 AM
                 '%m/%d/%Y %I:%M:%S %p',   # 7/30/2025 10:19:18 AM  
+                '%m/%d/%Y, %H:%M:%S',     # 7/30/2025, 14:19:18
+                '%m/%d/%Y %H:%M:%S',      # 7/30/2025 14:19:18
                 '%Y-%m-%d %H:%M:%S',      # 2025-07-30 10:19:18
                 '%Y-%m-%d %H:%M',         # 2025-07-30 10:19
                 '%Y-%m-%d',               # 2025-07-30
                 '%m/%d/%Y',               # 7/30/2025
+                '%d/%m/%Y, %I:%M:%S %p',  # 30/7/2025, 10:19:18 AM
+                '%d/%m/%Y %I:%M:%S %p',   # 30/7/2025 10:19:18 AM
             ]
             
             for fmt in formats:
                 try:
-                    return pd.to_datetime(date_str, format=fmt)
+                    parsed = pd.to_datetime(date_str, format=fmt)
+                    return parsed
                 except:
                     continue
             
-            # If all specific formats fail, let pandas try to infer
-            try:
-                return pd.to_datetime(date_str, infer_datetime_format=True)
-            except:
-                return pd.NaT
+            # If nothing works, return NaT
+            return pd.NaT
         
+        # Apply the parsing function
         df_processed['DateTime'] = df_processed['Date/Time'].apply(parse_datetime_flexible)
         
         # Remove any rows where datetime parsing failed
+        before_filter = len(df_processed)
         df_processed = df_processed.dropna(subset=['DateTime'])
+        after_filter = len(df_processed)
+        
+        # Store parsing info for sidebar display later
+        parsing_info = {
+            'successful_parse': df_processed['DateTime'].notna().sum(),
+            'total_rows': before_filter,
+            'removed_rows': before_filter - after_filter,
+            'sample_dates': df_processed['Date/Time'].dropna().head(3).tolist() if 'Date/Time' in df_processed.columns else [],
+            'sample_parsed': df_processed[df_processed['DateTime'].notna()]['DateTime'].head(3).tolist() if after_filter > 0 else []
+        }
         
         latest_data = df_processed.sort_values('DateTime').groupby('Keyword_Clean').tail(1).reset_index(drop=True)
     else:
+        parsing_info = None
         latest_data = df_processed.groupby('Keyword_Clean').tail(1).reset_index(drop=True)
     
     # Sidebar Navigation
@@ -1398,6 +1444,21 @@ def main():
     st.sidebar.markdown(f'<p style="color: #ffffff;">Total rows: {len(df)}</p>', unsafe_allow_html=True)
     if 'Keyword' in df.columns:
         st.sidebar.markdown(f'<p style="color: #ffffff;">Unique keywords: {df["Keyword"].nunique()}</p>', unsafe_allow_html=True)
+    
+    # Show datetime parsing debug info
+    if parsing_info:
+        st.sidebar.markdown('<h3 style="color: #ffffff;">🔍 DateTime Parsing</h3>', unsafe_allow_html=True)
+        st.sidebar.markdown(f'<p style="color: #a0a9c0; font-size: 12px;">Parsed: {parsing_info["successful_parse"]}/{parsing_info["total_rows"]} dates</p>', unsafe_allow_html=True)
+        
+        if parsing_info["removed_rows"] > 0:
+            st.sidebar.markdown(f'<p style="color: #f59e0b; font-size: 12px;">⚠️ Removed {parsing_info["removed_rows"]} rows with invalid dates</p>', unsafe_allow_html=True)
+        
+        if parsing_info["sample_dates"]:
+            st.sidebar.markdown(f'<p style="color: #a0a9c0; font-size: 12px;">Sample original: {parsing_info["sample_dates"][:2]}</p>', unsafe_allow_html=True)
+        
+        if parsing_info["sample_parsed"]:
+            sample_parsed_str = [dt.strftime('%m/%d/%Y %I:%M:%S %p') for dt in parsing_info["sample_parsed"][:2]]
+            st.sidebar.markdown(f'<p style="color: #10b981; font-size: 12px;">✅ Parsed to: {sample_parsed_str}</p>', unsafe_allow_html=True)
     
     # Page routing
     if page == "📊 Dashboard Overview":
