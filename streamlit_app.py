@@ -674,22 +674,37 @@ def show_date_comparison(df_processed):
             
             market = kw_data1['Market'].iloc[0] if not kw_data1.empty else (kw_data2['Market'].iloc[0] if not kw_data2.empty else 'Unknown')
             
+            # Get AI Overview and Full Results Data
+            ai1 = kw_data1['AI Overview'].iloc[0] if not kw_data1.empty and 'AI Overview' in kw_data1.columns else 'No'
+            ai2 = kw_data2['AI Overview'].iloc[0] if not kw_data2.empty and 'AI Overview' in kw_data2.columns else 'No'
+            
+            aio_links1 = kw_data1['AIO Links'].iloc[0] if not kw_data1.empty and 'AIO Links' in kw_data1.columns else ''
+            aio_links2 = kw_data2['AIO Links'].iloc[0] if not kw_data2.empty and 'AIO Links' in kw_data2.columns else ''
+            
+            full_results1 = kw_data1['Full Results Data'].iloc[0] if not kw_data1.empty and 'Full Results Data' in kw_data1.columns else ''
+            full_results2 = kw_data2['Full Results Data'].iloc[0] if not kw_data2.empty and 'Full Results Data' in kw_data2.columns else ''
+            
             change_val, change_desc = calculate_position_change(pos1, pos2)
             
             if change_val == float('inf'):
                 new_count += 1
-                change_type = "new"
+                change_type = "🆕 NEW"
+                change_color = "#3b82f6"
             elif change_val == float('-inf'):
                 lost_count += 1
-                change_type = "lost"
+                change_type = "❌ LOST"
+                change_color = "#f59e0b"
             elif change_val > 0:
                 improved_count += 1
-                change_type = "improved"
+                change_type = f"📈 +{change_val}"
+                change_color = "#10b981"
             elif change_val < 0:
                 declined_count += 1
-                change_type = "declined"
+                change_type = f"📉 {change_val}"
+                change_color = "#ef4444"
             else:
-                change_type = "stable"
+                change_type = "➡️ STABLE"
+                change_color = "#6b7280"
             
             comparison_data.append({
                 'keyword': keyword,
@@ -698,239 +713,222 @@ def show_date_comparison(df_processed):
                 'pos2': pos2,
                 'change_val': change_val,
                 'change_desc': change_desc,
-                'change_type': change_type
+                'change_type': change_type,
+                'change_color': change_color,
+                'ai1': ai1,
+                'ai2': ai2,
+                'aio_links1': aio_links1,
+                'aio_links2': aio_links2,
+                'full_results1': full_results1,
+                'full_results2': full_results2
             })
         
-        # Summary badges
-        st.markdown(f"""
-        <div style="display: flex; gap: 1rem; margin: 1rem 0;">
-            <span style="background: #10b981; color: white; padding: 0.5rem 1rem; border-radius: 20px; font-weight: bold;">
-                Improved {improved_count}
-            </span>
-            <span style="background: #ef4444; color: white; padding: 0.5rem 1rem; border-radius: 20px; font-weight: bold;">
-                Declined {declined_count}
-            </span>
-            <span style="background: #3b82f6; color: white; padding: 0.5rem 1rem; border-radius: 20px; font-weight: bold;">
-                New {new_count}
-            </span>
-            <span style="background: #f59e0b; color: white; padding: 0.5rem 1rem; border-radius: 20px; font-weight: bold;">
-                Lost {lost_count}
-            </span>
-        </div>
-        """, unsafe_allow_html=True)
+        # Summary badges using Streamlit columns
+        col1, col2, col3, col4 = st.columns(4)
         
-        # Visual SERP-style comparison
-        st.markdown("""
-        <style>
-        .serp-comparison {
-            display: flex;
-            gap: 2rem;
-            margin: 2rem 0;
-        }
+        with col1:
+            st.markdown(f"""
+            <div style="background: #10b981; color: white; padding: 0.8rem; border-radius: 12px; text-align: center; font-weight: bold;">
+                📈 Improved: {improved_count}
+            </div>
+            """, unsafe_allow_html=True)
         
-        .serp-column {
-            flex: 1;
-            background: #1a1a2e;
-            border-radius: 12px;
-            padding: 1.5rem;
-            border: 1px solid #667eea;
-        }
+        with col2:
+            st.markdown(f"""
+            <div style="background: #ef4444; color: white; padding: 0.8rem; border-radius: 12px; text-align: center; font-weight: bold;">
+                📉 Declined: {declined_count}
+            </div>
+            """, unsafe_allow_html=True)
         
-        .serp-header {
-            text-align: center;
-            font-size: 1.2rem;
-            font-weight: bold;
-            color: #ffffff;
-            margin-bottom: 1rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 2px solid #667eea;
-        }
+        with col3:
+            st.markdown(f"""
+            <div style="background: #3b82f6; color: white; padding: 0.8rem; border-radius: 12px; text-align: center; font-weight: bold;">
+                🆕 New: {new_count}
+            </div>
+            """, unsafe_allow_html=True)
         
-        .serp-item {
-            display: flex;
-            align-items: center;
-            margin: 0.8rem 0;
-            padding: 0.8rem;
-            background: #16213e;
-            border-radius: 8px;
-            border-left: 4px solid #667eea;
-        }
+        with col4:
+            st.markdown(f"""
+            <div style="background: #f59e0b; color: white; padding: 0.8rem; border-radius: 12px; text-align: center; font-weight: bold;">
+                ❌ Lost: {lost_count}
+            </div>
+            """, unsafe_allow_html=True)
         
-        .serp-item.improved {
-            border-left-color: #10b981;
-            background: linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, #16213e 100%);
-        }
+        st.markdown("<br>", unsafe_allow_html=True)
         
-        .serp-item.declined {
-            border-left-color: #ef4444;
-            background: linear-gradient(90deg, rgba(239, 68, 68, 0.1) 0%, #16213e 100%);
-        }
+        # Side-by-side comparison using Streamlit columns
+        col_left, col_right = st.columns(2)
         
-        .serp-item.new {
-            border-left-color: #3b82f6;
-            background: linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, #16213e 100%);
-        }
-        
-        .serp-item.lost {
-            border-left-color: #f59e0b;
-            background: linear-gradient(90deg, rgba(245, 158, 11, 0.1) 0%, #16213e 100%);
-        }
-        
-        .position-number {
-            background: #667eea;
-            color: white;
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            margin-right: 1rem;
-            flex-shrink: 0;
-        }
-        
-        .position-number.improved {
-            background: #10b981;
-        }
-        
-        .position-number.declined {
-            background: #ef4444;
-        }
-        
-        .position-number.new {
-            background: #3b82f6;
-        }
-        
-        .position-number.lost {
-            background: #f59e0b;
-        }
-        
-        .position-number.not-ranking {
-            background: #6b7280;
-        }
-        
-        .keyword-info {
-            flex: 1;
-        }
-        
-        .keyword-title {
-            color: #ffffff;
-            font-weight: 600;
-            margin-bottom: 0.3rem;
-        }
-        
-        .keyword-market {
-            color: #a0a9c0;
-            font-size: 0.9rem;
-        }
-        
-        .change-indicator {
-            font-size: 0.8rem;
-            padding: 0.2rem 0.5rem;
-            border-radius: 12px;
-            margin-left: 0.5rem;
-        }
-        
-        .change-indicator.improved {
-            background: #10b981;
-            color: white;
-        }
-        
-        .change-indicator.declined {
-            background: #ef4444;
-            color: white;
-        }
-        
-        .change-indicator.new {
-            background: #3b82f6;
-            color: white;
-        }
-        
-        .change-indicator.lost {
-            background: #f59e0b;
-            color: white;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-        
-        # Create SERP-style layout
-        html_content = f"""
-        <div class="serp-comparison">
-            <div class="serp-column">
-                <div class="serp-header">{date1}</div>
-        """
-        
-        # Sort keywords by position for date1
-        date1_sorted = sorted(comparison_data, key=lambda x: x['pos1'] if isinstance(x['pos1'], (int, float)) else 999)
-        
-        for item in date1_sorted:
-            pos1 = item['pos1']
-            pos_display = str(pos1) if isinstance(pos1, (int, float)) else "NR"
-            pos_class = "not-ranking" if not isinstance(pos1, (int, float)) else ""
+        with col_left:
+            st.markdown(f"""
+            <div style="background: #1a1a2e; border-radius: 12px; padding: 1.5rem; border: 1px solid #667eea;">
+                <h3 style="text-align: center; color: #ffffff; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid #667eea;">
+                    📅 {date1}
+                </h3>
+            </div>
+            """, unsafe_allow_html=True)
             
-            html_content += f"""
-                <div class="serp-item">
-                    <div class="position-number {pos_class}">{pos_display}</div>
-                    <div class="keyword-info">
-                        <div class="keyword-title">{item['keyword']}</div>
-                        <div class="keyword-market">{item['market']}</div>
+            # Sort by position for date1
+            date1_sorted = sorted(comparison_data, key=lambda x: x['pos1'] if isinstance(x['pos1'], (int, float)) else 999)
+            
+            for item in date1_sorted:
+                pos1 = item['pos1']
+                pos_display = str(int(pos1)) if isinstance(pos1, (int, float)) else "NR"
+                
+                # Create keyword card
+                st.markdown(f"""
+                <div style="background: #16213e; border-radius: 8px; padding: 1rem; margin: 0.5rem 0; border-left: 4px solid #667eea; display: flex; align-items: center;">
+                    <div style="background: #667eea; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 1rem; font-size: 14px;">
+                        {pos_display}
+                    </div>
+                    <div style="flex: 1;">
+                        <div style="color: #ffffff; font-weight: 600; margin-bottom: 0.3rem;">{item['keyword']}</div>
+                        <div style="color: #a0a9c0; font-size: 0.9rem;">{item['market']}</div>
+                        <div style="color: #a0a9c0; font-size: 0.8rem;">AI: {"🤖 Yes" if str(item['ai1']).lower() in ['yes', 'y', 'true'] else "❌ No"}</div>
                     </div>
                 </div>
-            """
+                """, unsafe_allow_html=True)
         
-        html_content += """
+        with col_right:
+            st.markdown(f"""
+            <div style="background: #1a1a2e; border-radius: 12px; padding: 1.5rem; border: 1px solid #667eea;">
+                <h3 style="text-align: center; color: #ffffff; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid #667eea;">
+                    📅 {date2}
+                </h3>
             </div>
-            <div class="serp-column">
-        """
-        
-        html_content += f'<div class="serp-header">{date2}</div>'
-        
-        # Sort keywords by position for date2
-        date2_sorted = sorted(comparison_data, key=lambda x: x['pos2'] if isinstance(x['pos2'], (int, float)) else 999)
-        
-        for item in date2_sorted:
-            pos2 = item['pos2']
-            pos_display = str(pos2) if isinstance(pos2, (int, float)) else "NR"
-            change_type = item['change_type']
+            """, unsafe_allow_html=True)
             
-            change_text = ""
-            if change_type == "improved":
-                change_text = f"↗ +{item['change_val']}"
-            elif change_type == "declined":
-                change_text = f"↘ {item['change_val']}"
-            elif change_type == "new":
-                change_text = "NEW"
-            elif change_type == "lost":
-                change_text = "LOST"
+            # Sort by position for date2
+            date2_sorted = sorted(comparison_data, key=lambda x: x['pos2'] if isinstance(x['pos2'], (int, float)) else 999)
             
-            html_content += f"""
-                <div class="serp-item {change_type}">
-                    <div class="position-number {change_type}">{pos_display}</div>
-                    <div class="keyword-info">
-                        <div class="keyword-title">{item['keyword']}</div>
-                        <div class="keyword-market">{item['market']}</div>
+            for item in date2_sorted:
+                pos2 = item['pos2']
+                pos_display = str(int(pos2)) if isinstance(pos2, (int, float)) else "NR"
+                
+                # Determine border color based on change
+                if item['change_val'] == float('inf'):
+                    border_color = "#3b82f6"
+                elif item['change_val'] == float('-inf'):
+                    border_color = "#f59e0b"
+                elif item['change_val'] > 0:
+                    border_color = "#10b981"
+                elif item['change_val'] < 0:
+                    border_color = "#ef4444"
+                else:
+                    border_color = "#667eea"
+                
+                # Create keyword card with change indicator
+                st.markdown(f"""
+                <div style="background: #16213e; border-radius: 8px; padding: 1rem; margin: 0.5rem 0; border-left: 4px solid {border_color}; display: flex; align-items: center;">
+                    <div style="background: {border_color}; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 1rem; font-size: 14px;">
+                        {pos_display}
                     </div>
-                    {f'<div class="change-indicator {change_type}">{change_text}</div>' if change_text else ''}
+                    <div style="flex: 1;">
+                        <div style="color: #ffffff; font-weight: 600; margin-bottom: 0.3rem;">{item['keyword']}</div>
+                        <div style="color: #a0a9c0; font-size: 0.9rem;">{item['market']}</div>
+                        <div style="color: #a0a9c0; font-size: 0.8rem;">AI: {"🤖 Yes" if str(item['ai2']).lower() in ['yes', 'y', 'true'] else "❌ No"}</div>
+                    </div>
+                    <div style="background: {item['change_color']}; color: white; padding: 0.3rem 0.8rem; border-radius: 12px; font-size: 0.8rem; font-weight: bold;">
+                        {item['change_type']}
+                    </div>
                 </div>
-            """
+                """, unsafe_allow_html=True)
         
-        html_content += """
-            </div>
-        </div>
-        """
+        # Detailed Content Sections
+        st.markdown('<h3 class="section-header">🔍 Detailed Content Analysis</h3>', unsafe_allow_html=True)
         
-        st.markdown(html_content, unsafe_allow_html=True)
+        # Keyword selector for detailed view
+        keyword_options = [item['keyword'] for item in comparison_data]
+        selected_keyword_detail = st.selectbox(
+            "Select keyword to view detailed content:",
+            keyword_options,
+            key="detailed_keyword_selector"
+        )
+        
+        if selected_keyword_detail:
+            # Find the selected keyword data
+            selected_item = next(item for item in comparison_data if item['keyword'] == selected_keyword_detail)
+            
+            # AI Overview Content Section
+            st.markdown('<h4 style="color: #ffffff;">🤖 AI Overview Content</h4>', unsafe_allow_html=True)
+            
+            col_ai1, col_ai2 = st.columns(2)
+            
+            with col_ai1:
+                st.markdown(f'<h5 style="color: #ffffff;">📅 {date1}</h5>', unsafe_allow_html=True)
+                
+                ai_status1 = "🤖 Yes" if str(selected_item['ai1']).lower() in ['yes', 'y', 'true'] else "❌ No"
+                st.markdown(f'<p style="color: #a0a9c0;">AI Overview: {ai_status1}</p>', unsafe_allow_html=True)
+                
+                if str(selected_item['ai1']).lower() in ['yes', 'y', 'true'] and selected_item['aio_links1']:
+                    with st.expander(f"🔗 AIO Links - {date1}", expanded=False):
+                        if pd.notna(selected_item['aio_links1']) and selected_item['aio_links1']:
+                            aio_links = str(selected_item['aio_links1']).split('\n')
+                            for i, link in enumerate(aio_links, 1):
+                                if link.strip():
+                                    st.markdown(f"**{i}.** [{link}]({link})")
+                        else:
+                            st.write("No AIO links available")
+                
+                if selected_item['full_results1']:
+                    with st.expander(f"📄 Full Results Data - {date1}", expanded=False):
+                        if pd.notna(selected_item['full_results1']) and selected_item['full_results1']:
+                            st.text_area(
+                                f"Complete search results for {date1}",
+                                selected_item['full_results1'],
+                                height=300,
+                                key=f"full_results_{date1}_{selected_keyword_detail}"
+                            )
+                        else:
+                            st.write("No full results data available")
+            
+            with col_ai2:
+                st.markdown(f'<h5 style="color: #ffffff;">📅 {date2}</h5>', unsafe_allow_html=True)
+                
+                ai_status2 = "🤖 Yes" if str(selected_item['ai2']).lower() in ['yes', 'y', 'true'] else "❌ No"
+                st.markdown(f'<p style="color: #a0a9c0;">AI Overview: {ai_status2}</p>', unsafe_allow_html=True)
+                
+                if str(selected_item['ai2']).lower() in ['yes', 'y', 'true'] and selected_item['aio_links2']:
+                    with st.expander(f"🔗 AIO Links - {date2}", expanded=False):
+                        if pd.notna(selected_item['aio_links2']) and selected_item['aio_links2']:
+                            aio_links = str(selected_item['aio_links2']).split('\n')
+                            for i, link in enumerate(aio_links, 1):
+                                if link.strip():
+                                    st.markdown(f"**{i}.** [{link}]({link})")
+                        else:
+                            st.write("No AIO links available")
+                
+                if selected_item['full_results2']:
+                    with st.expander(f"📄 Full Results Data - {date2}", expanded=False):
+                        if pd.notna(selected_item['full_results2']) and selected_item['full_results2']:
+                            st.text_area(
+                                f"Complete search results for {date2}",
+                                selected_item['full_results2'],
+                                height=300,
+                                key=f"full_results_{date2}_{selected_keyword_detail}"
+                            )
+                        else:
+                            st.write("No full results data available")
         
         # Export comparison results
         st.markdown('<h3 class="section-header">📥 Export Results</h3>', unsafe_allow_html=True)
         
         # Create DataFrame for export
-        export_df = pd.DataFrame(comparison_data)
-        export_df = export_df[['keyword', 'market', 'pos1', 'pos2', 'change_desc']].copy()
-        export_df.columns = ['Keyword', 'Market', f'Position {date1}', f'Position {date2}', 'Change']
+        export_data = []
+        for item in comparison_data:
+            export_data.append({
+                'Keyword': item['keyword'],
+                'Market': item['market'],
+                f'Position {date1}': item['pos1'],
+                f'Position {date2}': item['pos2'],
+                'Change': item['change_desc'],
+                f'AI Overview {date1}': item['ai1'],
+                f'AI Overview {date2}': item['ai2']
+            })
         
+        export_df = pd.DataFrame(export_data)
         csv_data = export_df.to_csv(index=False)
+        
         st.download_button(
             label="📥 Download Comparison Results as CSV",
             data=csv_data,
