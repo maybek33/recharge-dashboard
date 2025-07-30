@@ -10,382 +10,158 @@ from urllib.parse import urlparse
 
 # Page configuration
 st.set_page_config(
-    page_title="Recharge.com Ranking Dashboard",
-    page_icon="🔋",
+    page_title="Recharge.com SEO Dashboard",
+    page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Dark theme with white fonts
+# Modern, clean CSS styling
 st.markdown("""
 <style>
-    /* Dark theme styling */
+    /* Hide Streamlit elements */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    
+    /* Main app styling */
     .stApp {
-        background-color: #0f1419;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: #ffffff;
     }
     
     .main .block-container {
-        background-color: #0f1419;
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+        max-width: 1200px;
+    }
+    
+    /* Header styling */
+    .dashboard-header {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 20px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        text-align: center;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    }
+    
+    .dashboard-header h1 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin: 0;
+        color: #ffffff;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    }
+    
+    .dashboard-header p {
+        font-size: 1.1rem;
+        margin: 0.5rem 0 0 0;
+        opacity: 0.9;
         color: #ffffff;
     }
     
-    .main-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 2rem;
+    /* Card styling */
+    .metric-card {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
         border-radius: 15px;
-        margin-bottom: 2rem;
-        color: white;
-        text-align: center;
-        box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s ease;
     }
     
-    .main-header h1 {
+    .metric-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+    }
+    
+    .metric-number {
+        font-size: 2.5rem;
         font-weight: 700;
-        font-size: 3rem;
         margin: 0;
-        color: white !important;
+        color: #ffffff;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
     }
     
-    .main-header h3 {
-        font-weight: 300;
-        font-size: 1.5rem;
+    .metric-label {
+        font-size: 1rem;
         margin: 0.5rem 0 0 0;
         opacity: 0.9;
-        color: white !important;
+        color: #ffffff;
     }
     
-    .section-header {
-        font-weight: 600;
-        font-size: 1.8rem;
-        color: #ffffff !important;
-        margin: 2rem 0 1rem 0;
-        padding-bottom: 0.5rem;
-        border-bottom: 3px solid #667eea;
-    }
-    
-    /* All text should be white */
-    .stMarkdown, .stMarkdown p, .stMarkdown div, .stMarkdown span, .stText {
-        color: #ffffff !important;
-    }
-    
-    .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4, .stMarkdown h5, .stMarkdown h6 {
-        color: #ffffff !important;
-    }
-    
-    /* Metric styling - dark cards with white text */
-    .stMetric {
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-        padding: 1.5rem;
-        border-radius: 12px;
-        box-shadow: 0 4px 16px rgba(0,0,0,0.3);
-        border-left: 4px solid #667eea;
-        color: #ffffff !important;
-    }
-    
-    .stMetric label {
-        color: #ffffff !important;
-        font-weight: 600;
-    }
-    
-    .stMetric [data-testid="metric-value"] {
-        color: #ffffff !important;
-        font-weight: 700;
-    }
-    
-    .stMetric [data-testid="metric-delta"] {
-        color: #a0a9c0 !important;
-    }
-    
-    /* File uploader styling */
-    .stFileUploader {
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-        border-radius: 12px;
-        padding: 1rem;
-        border: 2px dashed #667eea;
-    }
-    
-    .stFileUploader label {
-        color: #ffffff !important;
-    }
-    
-    /* Dataframe styling */
-    .stDataFrame {
-        background: #1a1a2e;
-        border-radius: 12px;
-        border: 1px solid #667eea;
-    }
-    
-    /* Selectbox and other inputs */
-    .stSelectbox label, .stRadio label, .stCheckbox label, .stDateInput label {
-        color: #ffffff !important;
+    .metric-change {
+        font-size: 0.9rem;
+        margin: 0.25rem 0 0 0;
         font-weight: 500;
+    }
+    
+    .positive { color: #10b981; }
+    .negative { color: #ef4444; }
+    .neutral { color: #f59e0b; }
+    
+    /* Section styling */
+    .section-title {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 10px;
+        padding: 1rem 1.5rem;
+        margin: 2rem 0 1rem 0;
+        color: #ffffff;
+        font-size: 1.3rem;
+        font-weight: 600;
     }
     
     /* Sidebar styling */
     .css-1d391kg {
-        background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
     }
     
     .css-1d391kg .stMarkdown {
-        color: #ffffff !important;
-    }
-    
-    .css-1d391kg .stSelectbox label, 
-    .css-1d391kg .stRadio label, 
-    .css-1d391kg .stCheckbox label, 
-    .css-1d391kg .stDateInput label {
-        color: #ffffff !important;
-        font-weight: 500;
-    }
-    
-    /* Warning and info boxes */
-    .stWarning {
-        background: #2d1b4e;
         color: #ffffff;
-        border: 1px solid #667eea;
-    }
-    
-    .stInfo {
-        background: #1a2332;
-        color: #ffffff;
-        border: 1px solid #3b82f6;
-    }
-    
-    .stSuccess {
-        background: #1a3329;
-        color: #ffffff;
-        border: 1px solid #10b981;
-    }
-    
-    .stError {
-        background: #3d1a1a;
-        color: #ffffff;
-        border: 1px solid #ef4444;
     }
     
     /* Button styling */
     .stButton > button {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: rgba(255, 255, 255, 0.2);
         color: white;
-        border: none;
-        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 10px;
         padding: 0.5rem 1.5rem;
         font-weight: 500;
         transition: all 0.2s ease;
-        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
     }
     
     .stButton > button:hover {
+        background: rgba(255, 255, 255, 0.3);
         transform: translateY(-1px);
-        box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
     }
     
-    /* Spinner styling */
-    .stSpinner {
-        color: #667eea !important;
+    /* Chart container */
+    .chart-container {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 15px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
     }
     
-    /* Download button styling */
-    .stDownloadButton > button {
-        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-        color: white;
-        border: none;
-        border-radius: 8px;
-        padding: 0.5rem 1.5rem;
-        font-weight: 500;
+    /* Hide technical elements */
+    .technical-details {
+        display: none;
     }
 </style>
 """, unsafe_allow_html=True)
 
-@st.cache_data(ttl=60)  # Cache for 1 minute to allow frequent updates
-def load_data_from_google_sheets():
-    """Load data directly from the specified Google Sheets using GIDs from Main sheet"""
-    
-    # Your Google Sheets URL
-    sheet_id = "1hOMEaZ_zfliPxJ7N-9EJ64KvyRl9J-feoR30GB-bI_o"
-    
-    # First, read the main sheet to get the GIDs
-    main_csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid=0"
-    
-    try:
-        # Read the main configuration sheet
-        main_df = pd.read_csv(main_csv_url)
-        st.info(f"📋 Main sheet loaded with {len(main_df)} keyword configurations")
-        
-        # Show sample of main sheet for debugging
-        with st.expander("🔍 Main Sheet Structure", expanded=False):
-            st.dataframe(main_df.head())
-            st.markdown(f"**Columns:** {list(main_df.columns)}")
-        
-        # Extract GIDs from column E (index 4)
-        gids_to_try = []
-        keywords_info = []
-        
-        for index, row in main_df.iterrows():
-            try:
-                # Column E should contain "GID: 1933593504" format
-                if len(row) > 4 and pd.notna(row.iloc[4]):  # E column is index 4
-                    gid_text = str(row.iloc[4]).strip()
-                    
-                    # Extract GID number from text like "GID: 1933593504"
-                    if gid_text.startswith('GID:') or 'GID' in gid_text.upper():
-                        # Extract the number part
-                        import re
-                        gid_match = re.search(r'(\d+)', gid_text)
-                        if gid_match:
-                            gid = int(gid_match.group(1))
-                            keyword = row.iloc[1] if pd.notna(row.iloc[1]) else f"Keyword_{index}"  # B column
-                            gids_to_try.append(gid)
-                            keywords_info.append({
-                                'gid': gid,
-                                'keyword': keyword,
-                                'url': row.iloc[0] if pd.notna(row.iloc[0]) else '',  # A column
-                                'language': row.iloc[2] if len(row) > 2 and pd.notna(row.iloc[2]) else '',  # C column  
-                                'location': row.iloc[3] if len(row) > 3 and pd.notna(row.iloc[3]) else ''   # D column
-                            })
-            except Exception as e:
-                st.warning(f"Could not parse GID from row {index}: {e}")
-                continue
-        
-        st.success(f"🎯 Found {len(gids_to_try)} GIDs in Main sheet: {gids_to_try}")
-        
-        if not gids_to_try:
-            st.error("❌ No valid GIDs found in column E of Main sheet")
-            st.markdown("""
-            **Expected format in column E:** `GID: 1933593504`
-            
-            Please check that:
-            1. Column E contains GID information
-            2. Format is "GID: [number]" or similar
-            3. The numbers are valid Google Sheets GIDs
-            """)
-            return pd.DataFrame()
-        
-        # Now load each keyword sheet using the GIDs from Main sheet
-        all_keyword_data = []
-        successful_sheets = 0
-        failed_sheets = 0
-        
-        # Progress tracking
-        progress_bar = st.progress(0)
-        status_text = st.empty()
-        
-        for i, keyword_info in enumerate(keywords_info):
-            gid = keyword_info['gid']
-            expected_keyword = keyword_info['keyword']
-            
-            # Update progress
-            progress = (i + 1) / len(keywords_info)
-            progress_bar.progress(progress)
-            status_text.text(f"Loading sheet for '{expected_keyword}' (GID: {gid})... ({i+1}/{len(keywords_info)})")
-            
-            try:
-                keyword_csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
-                keyword_df = pd.read_csv(keyword_csv_url)
-                
-                # Check if this looks like a keyword tracking sheet
-                if (not keyword_df.empty and 
-                    'Date/Time' in keyword_df.columns and 
-                    'Recharge Position' in keyword_df.columns):
-                    
-                    # Add metadata
-                    keyword_df['Sheet_Name'] = f"{expected_keyword}_{keyword_info['language']}_{keyword_info['location']}"
-                    keyword_df['Sheet_GID'] = gid
-                    keyword_df['Expected_Keyword'] = expected_keyword
-                    keyword_df['Recharge_URL'] = keyword_info['url']
-                    keyword_df['Market'] = get_country_flag(keyword_info['location'])
-                    
-                    all_keyword_data.append(keyword_df)
-                    successful_sheets += 1
-                    
-                    # Get actual keyword from data to verify
-                    actual_keyword = keyword_df['Keyword'].iloc[0] if 'Keyword' in keyword_df.columns and not keyword_df.empty else 'Unknown'
-                    
-                    st.success(f"✅ Loaded '{expected_keyword}' (GID: {gid}) - {len(keyword_df)} rows - Actual keyword: '{actual_keyword}'")
-                    
-                    # Show sample for first few successful sheets
-                    if successful_sheets <= 3:
-                        with st.expander(f"🔍 Sample Data - {expected_keyword}", expanded=False):
-                            sample_df = keyword_df.head(3)
-                            st.dataframe(sample_df)
-                            
-                            # Show date/time samples
-                            if 'Date/Time' in sample_df.columns:
-                                st.markdown("**Date/Time samples:**")
-                                for idx, dt in enumerate(sample_df['Date/Time'].tolist()):
-                                    st.markdown(f"- Row {idx+1}: `{dt}`")
-                
-                else:
-                    failed_sheets += 1
-                    st.warning(f"⚠️ Sheet GID {gid} for '{expected_keyword}' doesn't look like tracking data (missing Date/Time or Recharge Position columns)")
-                    
-            except Exception as e:
-                failed_sheets += 1
-                st.error(f"❌ Failed to load GID {gid} for '{expected_keyword}': {str(e)}")
-                continue
-        
-        # Clear progress indicators
-        progress_bar.empty()
-        status_text.empty()
-        
-        if all_keyword_data:
-            # Combine all keyword tracking data
-            combined_df = pd.concat(all_keyword_data, ignore_index=True)
-            st.success(f"🎉 Successfully loaded {successful_sheets}/{len(keywords_info)} sheets with {len(combined_df)} total records")
-            
-            if failed_sheets > 0:
-                st.warning(f"⚠️ {failed_sheets} sheets failed to load")
-            
-            # Show summary by keyword
-            if 'Keyword' in combined_df.columns:
-                keyword_counts = combined_df['Keyword'].value_counts()
-                st.info(f"📊 Data loaded for keywords: {', '.join(keyword_counts.head(10).index.tolist())}")
-            
-            return combined_df
-        else:
-            st.error(f"❌ No keyword tracking data could be loaded from any of the {len(gids_to_try)} sheets")
-            st.markdown("""
-            **Possible issues:**
-            1. **Sheet permissions**: Make sure all sheets are accessible with "Anyone with link can view"
-            2. **Sheet structure**: Each keyword sheet should have columns: Date/Time, Keyword, Recharge Position
-            3. **GID format**: Check that column E contains valid GIDs like "GID: 1933593504"
-            """)
-            return pd.DataFrame()
-        
-    except Exception as e:
-        st.error(f"❌ Error reading Main sheet: {str(e)}")
-        st.markdown("""
-        **Make sure the Google Sheet is publicly accessible:**
-        1. Open the Google Sheet
-        2. Click Share button (top right) 
-        3. Change to "Anyone with the link" can view
-        4. Save and refresh this page
-        """)
-        return pd.DataFrame()
-
-def get_sample_data():
-    """Removed - no longer needed"""
-    return pd.DataFrame()
-
-@st.cache_data(ttl=300)
-def load_data_from_excel(uploaded_file):
-    """Removed - no longer needed"""
-    return pd.DataFrame()
-
-def parse_sheet_info(sheet_name):
-    """Extract keyword, language, and location from sheet name"""
-    clean_name = sheet_name.rstrip('_')
-    parts = clean_name.split('_')
-    
-    if len(parts) >= 3:
-        keyword = ' '.join(parts[:-2])
-        language = parts[-2]
-        location = parts[-1]
-        return keyword, language, location
-    else:
-        return sheet_name, 'en', 'us'
-
+# Utility functions
 def get_country_flag(location_code):
     """Get country flag emoji from location code"""
     flag_map = {
@@ -400,20 +176,20 @@ def get_country_flag(location_code):
         'de': '🇩🇪 Germany',
         'nl': '🇳🇱 Netherlands'
     }
-    return flag_map.get(location_code.lower(), f'🌍 {location_code.upper()}')
+    return flag_map.get(location_code.lower(), f'{location_code.upper()}')
 
 def get_position_status(position):
     """Get position status and color"""
     if pd.isna(position) or position == '' or str(position).lower() in ['not ranking', 'lost']:
-        return 'Not Ranking', '#dc2626'
+        return 'Not Ranking', '#ef4444'
     try:
         pos = int(position)
         if pos <= 3:
-            return f'#{pos}', '#166534'
+            return f'#{pos}', '#10b981'
         elif pos <= 10:
-            return f'#{pos}', '#92400e'
+            return f'#{pos}', '#f59e0b'
         else:
-            return f'#{pos}', '#dc2626'
+            return f'#{pos}', '#ef4444'
     except:
         return str(position), '#6b7280'
 
@@ -423,1211 +199,567 @@ def has_ai_overview(ai_content):
         return False
     return True
 
-def extract_aio_links(aio_links_content):
-    """Extract links from AIO Links content"""
-    if pd.isna(aio_links_content) or not aio_links_content or str(aio_links_content) == '#ERROR!':
-        return []
+@st.cache_data(ttl=60)
+def load_data_from_google_sheets():
+    """Load data directly from the specified Google Sheets using GIDs from Main sheet"""
     
-    content = str(aio_links_content)
-    links = []
+    sheet_id = "1hOMEaZ_zfliPxJ7N-9EJ64KvyRl9J-feoR30GB-bI_o"
+    main_csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid=0"
     
-    # Look for numbered links (1. https://...)
-    # Pattern for numbered links like "1. https://... - Title"
-    numbered_pattern = r'\d+\.\s+(https?://[^\s]+)'
-    found_urls = re.findall(numbered_pattern, content)
-    
-    for url in found_urls:
-        # Clean up URL (remove trailing punctuation and fragments)
-        clean_url = url.split('#')[0].rstrip('.,;:)')
-        if clean_url not in links:
-            links.append(clean_url)
-    
-    return links
-
-def show_dashboard_overview(latest_data, filtered_data):
-    """Dashboard Overview Page"""
-    st.markdown('<h2 class="section-header">📊 Key Performance Metrics</h2>', unsafe_allow_html=True)
-    
-    if 'Recharge Position' in latest_data.columns:
-        total_keywords = len(latest_data)
+    try:
+        # Read the main configuration sheet  
+        main_df = pd.read_csv(main_csv_url)
         
-        top_3 = len(latest_data[
-            latest_data['Recharge Position'].apply(
-                lambda x: isinstance(x, (int, float)) and 1 <= x <= 3
-            )
-        ])
+        # Extract GIDs from column E
+        gids_to_try = []
+        keywords_info = []
         
-        pos_4_10 = len(latest_data[
-            latest_data['Recharge Position'].apply(
-                lambda x: isinstance(x, (int, float)) and 4 <= x <= 10
-            )
-        ])
-        
-        not_ranking = len(latest_data[
-            latest_data['Recharge Position'].apply(
-                lambda x: str(x).lower() in ['not ranking', 'lost', ''] or pd.isna(x)
-            )
-        ])
-        
-        # FIXED: Check for AI Overview content existence instead of Yes/No
-        ai_count = len(latest_data[
-            latest_data['AI Overview'].apply(has_ai_overview)
-        ]) if 'AI Overview' in latest_data.columns else 0
-        
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric(
-                label="🟢 Top 3 Positions",
-                value=top_3,
-                delta=f"{(top_3/total_keywords*100):.1f}% of total" if total_keywords > 0 else None
-            )
-        
-        with col2:
-            st.metric(
-                label="🟡 Positions 4-10",
-                value=pos_4_10,
-                delta=f"{(pos_4_10/total_keywords*100):.1f}% of total" if total_keywords > 0 else None
-            )
-        
-        with col3:
-            st.metric(
-                label="🔴 Not Ranking",
-                value=not_ranking,
-                delta=f"{(not_ranking/total_keywords*100):.1f}% of total" if total_keywords > 0 else None
-            )
-        
-        with col4:
-            st.metric(
-                label="🤖 AI Overviews",
-                value=ai_count,
-                delta=f"{(ai_count/total_keywords*100):.1f}% coverage" if total_keywords > 0 else None
-            )
-    
-    # Keywords Overview Table with AI Overview Content
-    st.markdown('<h2 class="section-header">🔍 Keywords Overview</h2>', unsafe_allow_html=True)
-    
-    if not filtered_data.empty:
-        display_data = filtered_data.copy()
-        
-        # Format data for display
-        if 'Recharge Position' in display_data.columns:
-            display_data['Position_Display'] = display_data['Recharge Position'].apply(
-                lambda x: get_position_status(x)[0]
-            )
-        
-        if 'Position Change' in display_data.columns:
-            display_data['Change_Display'] = display_data['Position Change'].fillna('Unknown')
-        
-        # FIXED: Check AI Overview content instead of Yes/No
-        if 'AI Overview' in display_data.columns:
-            display_data['AI_Display'] = display_data['AI Overview'].apply(
-                lambda x: '🤖 Yes' if has_ai_overview(x) else '❌ No'
-            )
-        
-        # Select columns for display
-        display_columns = ['Keyword', 'Market', 'Position_Display', 'Change_Display', 'AI_Display']
-        column_mapping = {
-            'Position_Display': 'Position',
-            'Change_Display': 'Change',
-            'AI_Display': 'AI Overview'
-        }
-        
-        available_cols = [col for col in display_columns if col in display_data.columns]
-        if available_cols:
-            table_data = display_data[available_cols].rename(columns=column_mapping)
-            st.dataframe(table_data, use_container_width=True, hide_index=True)
-        
-        # AI Overview Content Display
-        if 'AI Overview' in display_data.columns:
-            ai_keywords = display_data[display_data['AI Overview'].apply(has_ai_overview)]
-            
-            if not ai_keywords.empty:
-                st.markdown('<h3 class="section-header">🤖 AI Overview Content</h3>', unsafe_allow_html=True)
-                
-                # Show AI Overview content for keywords that have it
-                for idx, row in ai_keywords.iterrows():
-                    keyword = row.get('Keyword', 'Unknown')
-                    position = row.get('Recharge Position', 'Unknown')
-                    ai_content = row.get('AI Overview', '')
+        for index, row in main_df.iterrows():
+            try:
+                if len(row) > 4 and pd.notna(row.iloc[4]):
+                    gid_text = str(row.iloc[4]).strip()
                     
-                    if has_ai_overview(ai_content):
-                        with st.expander(f"🔍 {keyword} (Position: {position})", expanded=False):
-                            col1, col2 = st.columns([3, 1])
-                            
-                            with col1:
-                                st.markdown("**🤖 AI Overview Content:**")
-                                st.text_area(
-                                    "AI Overview",
-                                    ai_content,
-                                    height=150,
-                                    key=f"ai_overview_{idx}",
-                                    label_visibility="collapsed"
-                                )
-                            
-                            with col2:
-                                st.markdown("**📊 Details:**")
-                                st.write(f"**Keyword:** {keyword}")
-                                st.write(f"**Position:** {position}")
-                                st.write(f"**Market:** {row.get('Market', 'Unknown')}")
-                                
-                                # Show AI Overview links if available
-                                if 'AIO Links' in row:
-                                    links = extract_aio_links(row['AIO Links'])
-                                    if links:
-                                        st.markdown("**🔗 Links:**")
-                                        for i, link in enumerate(links[:3], 1):
-                                            try:
-                                                domain = urlparse(link).netloc.replace('www.', '')
-                                            except:
-                                                domain = link[:20] + "..."
-                                            st.markdown(f"{i}. [{domain}]({link})")
-                                    else:
-                                        st.write("**🔗 Links:** None found")
+                    if gid_text.startswith('GID:') or 'GID' in gid_text.upper():
+                        gid_match = re.search(r'(\d+)', gid_text)
+                        if gid_match:
+                            gid = int(gid_match.group(1))
+                            keyword = row.iloc[1] if pd.notna(row.iloc[1]) else f"Keyword_{index}"
+                            gids_to_try.append(gid)
+                            keywords_info.append({
+                                'gid': gid,
+                                'keyword': keyword,
+                                'url': row.iloc[0] if pd.notna(row.iloc[0]) else '',
+                                'language': row.iloc[2] if len(row) > 2 and pd.notna(row.iloc[2]) else '',
+                                'location': row.iloc[3] if len(row) > 3 and pd.notna(row.iloc[3]) else ''
+                            })
+            except:
+                continue
+        
+        if not gids_to_try:
+            return pd.DataFrame()
+        
+        # Load keyword sheets
+        all_keyword_data = []
+        successful_sheets = 0
+        
+        for keyword_info in keywords_info:
+            gid = keyword_info['gid']
+            expected_keyword = keyword_info['keyword']
+            
+            try:
+                keyword_csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
+                keyword_df = pd.read_csv(keyword_csv_url)
+                
+                if (not keyword_df.empty and 
+                    'Date/Time' in keyword_df.columns and 
+                    'Recharge Position' in keyword_df.columns):
+                    
+                    keyword_df['Sheet_Name'] = f"{expected_keyword}_{keyword_info['language']}_{keyword_info['location']}"
+                    keyword_df['Sheet_GID'] = gid
+                    keyword_df['Expected_Keyword'] = expected_keyword
+                    keyword_df['Recharge_URL'] = keyword_info['url']
+                    keyword_df['Market'] = get_country_flag(keyword_info['location'])
+                    
+                    all_keyword_data.append(keyword_df)
+                    successful_sheets += 1
+                    
+            except:
+                continue
+        
+        if all_keyword_data:
+            combined_df = pd.concat(all_keyword_data, ignore_index=True)
+            return combined_df
+        else:
+            return pd.DataFrame()
+        
+    except:
+        return pd.DataFrame()
+
+def parse_excel_datetime(date_val):
+    """Parse datetime from various formats"""
+    if pd.isna(date_val):
+        return pd.NaT
     
-    # Charts
-    st.markdown('<h2 class="section-header">📈 Analytics Overview</h2>', unsafe_allow_html=True)
+    date_str = str(date_val).strip()
+    
+    # Try ISO format first
+    try:
+        result = pd.to_datetime(date_str, format='ISO8601', errors='coerce')
+        if pd.notna(result):
+            return result
+    except:
+        pass
+    
+    # Try standard parsing
+    try:
+        result = pd.to_datetime(date_str, infer_datetime_format=True, errors='coerce') 
+        if pd.notna(result):
+            return result
+    except:
+        pass
+    
+    # Try specific formats
+    formats_to_try = [
+        '%Y-%m-%dT%H:%M:%S.%fZ',
+        '%Y-%m-%dT%H:%M:%SZ',
+        '%Y-%m-%d %H:%M:%S',
+        '%m/%d/%Y, %I:%M:%S %p',
+        '%m/%d/%Y %I:%M:%S %p',
+    ]
+    
+    for fmt in formats_to_try:
+        try:
+            return pd.to_datetime(date_str, format=fmt)
+        except:
+            continue
+    
+    return pd.NaT
+
+def create_metric_card(title, value, change=None, format_as_percent=False):
+    """Create a metric card component"""
+    change_class = ""
+    change_text = ""
+    
+    if change is not None:
+        if change > 0:
+            change_class = "positive"
+            change_text = f"↗ +{change}{'%' if format_as_percent else ''}"
+        elif change < 0:
+            change_class = "negative" 
+            change_text = f"↘ {change}{'%' if format_as_percent else ''}"
+        else:
+            change_class = "neutral"
+            change_text = "→ No change"
+    
+    return f"""
+    <div class="metric-card">
+        <div class="metric-number">{value}</div>
+        <div class="metric-label">{title}</div>
+        {f'<div class="metric-change {change_class}">{change_text}</div>' if change_text else ''}
+    </div>
+    """
+
+def show_executive_dashboard(df_processed):
+    """Executive-level dashboard view"""
+    
+    if df_processed.empty:
+        st.error("No data available. Please check Google Sheets connectivity.")
+        return
+    
+    # Process data
+    df_processed['DateTime'] = df_processed['Date/Time'].apply(parse_excel_datetime)
+    df_processed = df_processed.dropna(subset=['DateTime'])
+    
+    if df_processed.empty:
+        st.error("No valid data found after processing.")
+        return
+    
+    # Get latest data for each keyword
+    latest_data = df_processed.sort_values('DateTime').groupby('Keyword').tail(1).reset_index(drop=True)
+    
+    # Header
+    st.markdown("""
+    <div class="dashboard-header">
+        <h1>🔋 Recharge.com SEO Performance</h1>
+        <p>Real-time search ranking intelligence for global markets</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Key Metrics Row
+    col1, col2, col3, col4 = st.columns(4)
+    
+    # Calculate metrics
+    total_keywords = len(latest_data)
+    top_3 = len(latest_data[latest_data['Recharge Position'].apply(
+        lambda x: isinstance(x, (int, float)) and 1 <= x <= 3
+    )])
+    
+    first_page = len(latest_data[latest_data['Recharge Position'].apply(
+        lambda x: isinstance(x, (int, float)) and 1 <= x <= 10
+    )])
+    
+    ai_coverage = len(latest_data[latest_data['AI Overview'].apply(has_ai_overview)]) if 'AI Overview' in latest_data.columns else 0
+    
+    with col1:
+        st.markdown(create_metric_card("Total Keywords", total_keywords), unsafe_allow_html=True)
+    
+    with col2:
+        top_3_pct = round((top_3/total_keywords*100)) if total_keywords > 0 else 0
+        st.markdown(create_metric_card("Top 3 Positions", f"{top_3} ({top_3_pct}%)"), unsafe_allow_html=True)
+    
+    with col3:
+        first_page_pct = round((first_page/total_keywords*100)) if total_keywords > 0 else 0
+        st.markdown(create_metric_card("First Page", f"{first_page} ({first_page_pct}%)"), unsafe_allow_html=True)
+    
+    with col4:
+        ai_pct = round((ai_coverage/total_keywords*100)) if total_keywords > 0 else 0
+        st.markdown(create_metric_card("AI Overview", f"{ai_coverage} ({ai_pct}%)"), unsafe_allow_html=True)
+    
+    # Charts Section
+    st.markdown('<div class="section-title">📈 Performance Analytics</div>', unsafe_allow_html=True)
     
     col1, col2 = st.columns(2)
     
     with col1:
-        # Position Distribution
-        if 'Recharge Position' in latest_data.columns:
-            position_counts = {
-                'Top 3 (1-3)': len(latest_data[
-                    latest_data['Recharge Position'].apply(
-                        lambda x: isinstance(x, (int, float)) and 1 <= x <= 3
-                    )
-                ]),
-                'Positions 4-10': len(latest_data[
-                    latest_data['Recharge Position'].apply(
-                        lambda x: isinstance(x, (int, float)) and 4 <= x <= 10
-                    )
-                ]),
-                'Not Ranking': len(latest_data[
-                    latest_data['Recharge Position'].apply(
-                        lambda x: str(x).lower() in ['not ranking', 'lost', ''] or pd.isna(x)
-                    )
-                ])
+        # Position Distribution Chart
+        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+        
+        position_data = {
+            'Top 3': len(latest_data[latest_data['Recharge Position'].apply(
+                lambda x: isinstance(x, (int, float)) and 1 <= x <= 3
+            )]),
+            'Positions 4-10': len(latest_data[latest_data['Recharge Position'].apply(
+                lambda x: isinstance(x, (int, float)) and 4 <= x <= 10
+            )]),
+            'Not Ranking': len(latest_data[latest_data['Recharge Position'].apply(
+                lambda x: str(x).lower() in ['not ranking', 'lost', ''] or pd.isna(x)
+            )])
+        }
+        
+        fig_pie = px.pie(
+            values=list(position_data.values()),
+            names=list(position_data.keys()),
+            title="Search Position Distribution",
+            color_discrete_map={
+                'Top 3': '#10b981',
+                'Positions 4-10': '#f59e0b', 
+                'Not Ranking': '#ef4444'
             }
-            
-            fig_pie = px.pie(
-                values=list(position_counts.values()),
-                names=list(position_counts.keys()),
-                title="Position Distribution",
-                color_discrete_map={
-                    'Top 3 (1-3)': '#10b981',
-                    'Positions 4-10': '#f59e0b',
-                    'Not Ranking': '#ef4444'
-                }
-            )
-            fig_pie.update_layout(
-                height=400,
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)',
-                font_color='white',
-                title_font_color='white'
-            )
-            st.plotly_chart(fig_pie, use_container_width=True)
+        )
+        
+        fig_pie.update_layout(
+            height=350,
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            font_color='white',
+            title_font_size=16,
+            title_font_color='white'
+        )
+        
+        st.plotly_chart(fig_pie, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
     
     with col2:
-        # Market Performance
-        if 'Market' in latest_data.columns and 'Recharge Position' in latest_data.columns:
-            market_avg = latest_data.groupby('Market')['Recharge Position'].apply(
-                lambda x: x[x.apply(lambda y: isinstance(y, (int, float)))].mean()
-            ).reset_index()
-            market_avg.columns = ['Market', 'Avg_Position']
-            market_avg = market_avg.dropna()
+        # Market Performance Chart
+        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+        
+        if 'Market' in latest_data.columns:
+            market_performance = latest_data.groupby('Market').agg({
+                'Recharge Position': lambda x: x[x.apply(lambda y: isinstance(y, (int, float)))].mean()
+            }).reset_index()
+            market_performance.columns = ['Market', 'Avg_Position']
+            market_performance = market_performance.dropna()
             
-            if not market_avg.empty:
+            if not market_performance.empty:
                 fig_bar = px.bar(
-                    market_avg,
+                    market_performance,
                     x='Market',
                     y='Avg_Position',
                     title="Average Position by Market",
                     color='Avg_Position',
                     color_continuous_scale=['#10b981', '#f59e0b', '#ef4444']
                 )
+                
                 fig_bar.update_layout(
-                    height=400, 
-                    yaxis_title="Average Position",
+                    height=350,
+                    yaxis_title="Average Position (Lower is Better)",
+                    yaxis=dict(autorange="reversed"),
                     paper_bgcolor='rgba(0,0,0,0)',
                     plot_bgcolor='rgba(0,0,0,0)',
                     font_color='white',
-                    title_font_color='white',
-                    xaxis=dict(color='white'),
-                    yaxis=dict(color='white')
+                    title_font_size=16,
+                    title_font_color='white'
                 )
+                
                 st.plotly_chart(fig_bar, use_container_width=True)
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Keywords Performance Table
+    st.markdown('<div class="section-title">🎯 Keyword Performance Summary</div>', unsafe_allow_html=True)
+    
+    if not latest_data.empty:
+        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+        
+        # Create display dataframe
+        display_df = latest_data.copy()
+        
+        # Format columns for display
+        display_df['Position'] = display_df['Recharge Position'].apply(
+            lambda x: get_position_status(x)[0]
+        )
+        
+        display_df['AI Overview Status'] = display_df['AI Overview'].apply(
+            lambda x: '✅ Present' if has_ai_overview(x) else '❌ Missing'
+        ) if 'AI Overview' in display_df.columns else '❓ Unknown'
+        
+        display_df['Change'] = display_df.get('Position Change', 'Unknown')
+        
+        # Select columns for display
+        columns_to_show = ['Keyword', 'Market', 'Position', 'Change', 'AI Overview Status']
+        available_columns = [col for col in columns_to_show if col in display_df.columns or col in ['Position', 'AI Overview Status', 'Change']]
+        
+        if available_columns:
+            table_df = display_df[['Keyword', 'Market'] + [col for col in available_columns if col not in ['Keyword', 'Market']]]
+            st.dataframe(
+                table_df, 
+                use_container_width=True, 
+                hide_index=True,
+                height=400
+            )
+        
+        st.markdown('</div>', unsafe_allow_html=True)
 
-def show_keyword_tracking(df_processed, filtered_data):
-    """Individual Keyword Tracking Page"""
-    st.markdown('<h2 class="section-header">📈 Individual Keyword Performance</h2>', unsafe_allow_html=True)
+def show_keyword_analysis(df_processed):
+    """Detailed keyword analysis view"""
+    
+    if df_processed.empty:
+        st.error("No data available.")
+        return
+    
+    # Process datetime
+    df_processed['DateTime'] = df_processed['Date/Time'].apply(parse_excel_datetime)
+    df_processed = df_processed.dropna(subset=['DateTime'])
+    
+    # Header
+    st.markdown('<div class="section-title">🔍 Keyword Performance Analysis</div>', unsafe_allow_html=True)
     
     # Keyword selector
     if 'Keyword' in df_processed.columns:
         available_keywords = sorted(df_processed['Keyword'].dropna().unique())
+        selected_keyword = st.selectbox(
+            "Select keyword to analyze:",
+            available_keywords,
+            key="keyword_selector"
+        )
     else:
-        st.markdown('<div class="stError">❌ No "Keyword" column found in data</div>', unsafe_allow_html=True)
+        st.error("No keywords found in data")
         return
-    
-    if len(available_keywords) == 0:
-        st.markdown('<div class="stWarning">⚠️ No keywords found in the data.</div>', unsafe_allow_html=True)
-        return
-    
-    selected_keyword = st.selectbox(
-        "🔍 Select keyword to analyze:",
-        available_keywords,
-        key="keyword_selector"
-    )
     
     if selected_keyword:
         # Filter data for selected keyword
         keyword_data = df_processed[df_processed['Keyword'] == selected_keyword].copy()
+        keyword_data = keyword_data.sort_values('DateTime')
         
-        if 'DateTime' in keyword_data.columns:
-            keyword_data = keyword_data.sort_values('DateTime')
+        if keyword_data.empty:
+            st.error(f"No data found for keyword: {selected_keyword}")
+            return
         
-        # Key metrics for this keyword
+        # Latest metrics
+        latest_row = keyword_data.iloc[-1]
+        
         col1, col2, col3, col4 = st.columns(4)
         
-        if not keyword_data.empty:
-            latest_row = keyword_data.iloc[-1]
-            
-            with col1:
-                current_pos = latest_row.get('Recharge Position', 'Unknown')
-                st.metric("Current Position", current_pos)
-            
-            with col2:
-                change = latest_row.get('Position Change', 'Unknown')
-                st.metric("Latest Change", change)
-            
-            with col3:
-                market = latest_row.get('Market', 'Unknown')
-                st.metric("Market", market)
-            
-            with col4:
-                ai_status = latest_row.get('AI Overview', '')
-                ai_display = '🤖 Yes' if has_ai_overview(ai_status) else '❌ No'
-                st.metric("AI Overview", ai_display)
+        with col1:
+            current_pos = latest_row.get('Recharge Position', 'Unknown')
+            st.markdown(create_metric_card("Current Position", current_pos), unsafe_allow_html=True)
         
-        # Position tracking chart
-        st.markdown('<h3 class="section-header">📊 Position History</h3>', unsafe_allow_html=True)
+        with col2:
+            market = latest_row.get('Market', 'Unknown')
+            st.markdown(create_metric_card("Market", market), unsafe_allow_html=True)
         
-        if 'DateTime' in keyword_data.columns and 'Recharge Position' in keyword_data.columns:
-            plot_data = keyword_data.copy()
-            plot_data['Position_Numeric'] = plot_data['Recharge Position'].apply(
-                lambda x: int(x) if isinstance(x, (int, float)) and not pd.isna(x) else None
-            )
-            
-            plot_data = plot_data.dropna(subset=['Position_Numeric'])
-            
-            if not plot_data.empty:
-                fig = px.line(
-                    plot_data,
-                    x='DateTime',
-                    y='Position_Numeric',
-                    title=f'Position Tracking for "{selected_keyword}"',
-                    markers=True,
-                    color_discrete_sequence=['#667eea']
-                )
-                
-                fig.update_layout(
-                    yaxis=dict(autorange="reversed", color='white'),
-                    height=400,
-                    yaxis_title="Search Position",
-                    xaxis_title="Date",
-                    paper_bgcolor='rgba(0,0,0,0)',
-                    plot_bgcolor='rgba(0,0,0,0)',
-                    font_color='white',
-                    title_font_color='white',
-                    xaxis=dict(color='white')
-                )
-                
-                fig.add_hline(y=3.5, line_dash="dash", line_color="#10b981", 
-                             annotation_text="Top 3 Threshold", annotation_font_color='white')
-                fig.add_hline(y=10.5, line_dash="dash", line_color="#f59e0b", 
-                             annotation_text="First Page Threshold", annotation_font_color='white')
-                
-                st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.markdown('<div class="stInfo">No numeric position data available for this keyword.</div>', unsafe_allow_html=True)
-
-def show_ai_overview_tracking(df_processed):
-    """AI Overview Tracking Page"""
-    st.markdown('<h2 class="section-header">🤖 AI Overview Tracking</h2>', unsafe_allow_html=True)
-    
-    # Filter data to only show records with AI Overview content
-    if 'AI Overview' in df_processed.columns:
-        ai_data = df_processed[
-            df_processed['AI Overview'].apply(has_ai_overview)
-        ].copy()
-    else:
-        st.markdown('<div class="stError">❌ No "AI Overview" column found in data</div>', unsafe_allow_html=True)
-        return
-    
-    if ai_data.empty:
-        st.markdown('<div class="stWarning">⚠️ No AI Overview data found in the dataset.</div>', unsafe_allow_html=True)
-        return
-    
-    # Summary metrics
-    st.markdown('<h3 class="section-header">📊 AI Overview Summary</h3>', unsafe_allow_html=True)
-    
-    if 'DateTime' in ai_data.columns:
-        ai_data['Date'] = ai_data['DateTime'].dt.date
-        latest_ai_data = ai_data.sort_values('DateTime').groupby('Keyword').tail(1).reset_index(drop=True)
-    else:
-        latest_ai_data = ai_data.groupby('Keyword').tail(1).reset_index(drop=True)
-    
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        total_keywords_with_ai = latest_ai_data['Keyword'].nunique()
-        st.metric("Keywords with AI Overview", total_keywords_with_ai)
-    
-    with col2:
-        total_ai_records = len(ai_data)
-        st.metric("Total AI Overview Records", total_ai_records)
-    
-    with col3:
-        if 'DateTime' in ai_data.columns:
-            unique_dates = ai_data['Date'].nunique()
-            st.metric("Days with AI Overview Data", unique_dates)
-    
-    with col4:
-        avg_position = latest_ai_data['Recharge Position'].apply(
+        with col3:
+            change = latest_row.get('Position Change', 'Unknown')
+            st.markdown(create_metric_card("Latest Change", change), unsafe_allow_html=True)
+        
+        with col4:
+            ai_status = latest_row.get('AI Overview', '')
+            ai_display = '✅ Present' if has_ai_overview(ai_status) else '❌ Missing'
+            st.markdown(create_metric_card("AI Overview", ai_display), unsafe_allow_html=True)
+        
+        # Position trend chart
+        st.markdown('<div class="section-title">📈 Position Trend</div>', unsafe_allow_html=True)
+        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+        
+        # Create position trend
+        plot_data = keyword_data.copy()
+        plot_data['Position_Numeric'] = plot_data['Recharge Position'].apply(
             lambda x: int(x) if isinstance(x, (int, float)) and not pd.isna(x) else None
-        ).mean()
-        if not pd.isna(avg_position):
-            st.metric("Avg Position (AI Keywords)", f"{avg_position:.1f}")
-    
-    # Keywords with AI Overview table
-    st.markdown('<h3 class="section-header">🔍 Keywords with AI Overview</h3>', unsafe_allow_html=True)
-    
-    if not latest_ai_data.empty:
-        display_data = latest_ai_data.copy()
+        )
+        plot_data = plot_data.dropna(subset=['Position_Numeric'])
         
-        # Format data for display
-        if 'Recharge Position' in display_data.columns:
-            display_data['Position_Display'] = display_data['Recharge Position'].apply(
-                lambda x: get_position_status(x)[0]
+        if not plot_data.empty:
+            fig = px.line(
+                plot_data,
+                x='DateTime',
+                y='Position_Numeric',
+                title=f'Position History: {selected_keyword}',
+                markers=True,
+                line_shape='spline'
             )
-        
-        if 'Position Change' in display_data.columns:
-            display_data['Change_Display'] = display_data['Position Change'].fillna('Unknown')
-        
-        # Select columns for display
-        display_columns = ['Keyword', 'Market', 'Position_Display', 'Change_Display']
-        column_mapping = {
-            'Position_Display': 'Position',
-            'Change_Display': 'Latest Change'
-        }
-        
-        available_cols = [col for col in display_columns if col in display_data.columns]
-        if available_cols:
-            table_data = display_data[available_cols].rename(columns=column_mapping)
-            st.dataframe(table_data, use_container_width=True, hide_index=True)
-    
-    # Keyword selector for detailed AI analysis
-    st.markdown('<h3 class="section-header">📋 Detailed AI Overview Analysis</h3>', unsafe_allow_html=True)
-    
-    available_ai_keywords = sorted(ai_data['Keyword'].unique())
-    selected_ai_keyword = st.selectbox(
-        "🔍 Select keyword for AI Overview analysis:",
-        available_ai_keywords,
-        key="ai_keyword_selector"
-    )
-    
-    if selected_ai_keyword:
-        keyword_ai_data = ai_data[ai_data['Keyword'] == selected_ai_keyword].copy()
-        
-        if 'DateTime' in keyword_ai_data.columns:
-            keyword_ai_data = keyword_ai_data.sort_values('DateTime')
-        
-        # Show AI Overview content for each date
-        st.markdown(f'<h4 style="color: #ffffff;">🤖 AI Overview Content History for "{selected_ai_keyword}"</h4>', unsafe_allow_html=True)
-        
-        for idx, row in keyword_ai_data.iterrows():
-            date_str = row.get('DateTime', 'Unknown Date')
-            if hasattr(date_str, 'strftime'):
-                date_display = date_str.strftime('%b %d, %Y at %I:%M:%S %p')
-            else:
-                date_display = str(date_str)
             
-            position = row.get('Recharge Position', 'Unknown')
+            fig.update_layout(
+                height=400,
+                yaxis=dict(autorange="reversed", title="Search Position"),
+                xaxis_title="Date",
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font_color='white',
+                title_font_color='white'
+            )
             
-            with st.expander(f"📅 {date_display} - Position: {position}", expanded=False):
-                col_content, col_links = st.columns([2, 1])
-                
-                with col_content:
-                    st.markdown("**🤖 AI Overview Content:**")
-                    aio_content = row.get('AI Overview', '')
-                    if has_ai_overview(aio_content):
-                        st.text_area(
-                            f"AI Overview content",
-                            aio_content,
-                            height=200,
-                            key=f"ai_content_{idx}",
-                            label_visibility="collapsed"
-                        )
-                    else:
-                        st.write("No AI Overview content available")
-                
-                with col_links:
-                    st.markdown("**🔗 Extracted Links:**")
-                    links = extract_aio_links(row.get('AIO Links', ''))
-                    if links:
-                        for i, link in enumerate(links, 1):
-                            # Extract domain for display
-                            try:
-                                domain = urlparse(link).netloc.replace('www.', '')
-                            except:
-                                domain = link[:30] + "..." if len(link) > 30 else link
-                            st.markdown(f"{i}. [{domain}]({link})")
-                    else:
-                        st.write("No links found")
-                
-                # Show original SERP positions
-                st.markdown("**📊 Original SERP Positions:**")
-                positions_data = []
-                for pos in range(1, 6):
-                    col_name = f'Position {pos}'
-                    if col_name in row and pd.notna(row[col_name]) and row[col_name]:
-                        url = str(row[col_name])
-                        # Extract domain
-                        try:
-                            domain = urlparse(url).netloc.replace('www.', '')
-                        except:
-                            domain = url[:50] + "..." if len(url) > 50 else url
-                        
-                        is_recharge = 'recharge.com' in url.lower()
-                        positions_data.append({
-                            'Position': pos,
-                            'Domain': domain,
-                            'URL': url,
-                            'Is Recharge': '🔋 Yes' if is_recharge else '❌ No'
-                        })
-                
-                if positions_data:
-                    positions_df = pd.DataFrame(positions_data)
-                    st.dataframe(positions_df, use_container_width=True, hide_index=True)
-        
-        # AI Overview Links Table
-        st.markdown('<h4 style="color: #ffffff;">🔗 All AI Overview Links for this Keyword</h4>', unsafe_allow_html=True)
-        
-        all_links = []
-        for idx, row in keyword_ai_data.iterrows():
-            date_str = row.get('DateTime', 'Unknown Date')
-            if hasattr(date_str, 'strftime'):
-                date_display = date_str.strftime('%b %d, %Y at %I:%M:%S %p')
-            else:
-                date_display = str(date_str)
+            # Add reference lines
+            fig.add_hline(y=3.5, line_dash="dash", line_color="rgba(16, 185, 129, 0.7)", 
+                         annotation_text="Top 3 Threshold")
+            fig.add_hline(y=10.5, line_dash="dash", line_color="rgba(245, 158, 11, 0.7)", 
+                         annotation_text="Page 1 Threshold")
             
-            links = extract_aio_links(row.get('AIO Links', ''))
-            for link in links:
-                try:
-                    domain = urlparse(link).netloc.replace('www.', '')
-                except:
-                    domain = link[:50]
-                    
-                all_links.append({
-                    'Date': date_display,
-                    'URL': link,
-                    'Domain': domain
-                })
-        
-        if all_links:
-            links_df = pd.DataFrame(all_links)
-            st.dataframe(links_df, use_container_width=True, hide_index=True)
+            fig.update_traces(
+                line=dict(width=3, color='#ffffff'),
+                marker=dict(size=8, color='#10b981')
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
         else:
-            st.write("No links found in AI Overview content")
+            st.info("No numeric position data available for trend analysis.")
+        
+        st.markdown('</div>', unsafe_allow_html=True)
 
-def show_date_comparison(df_processed):
-    """Date Comparison Page with full SERP results comparison"""
-    st.markdown('<h2 class="section-header">📅 SERP Results Comparison</h2>', unsafe_allow_html=True)
+def show_serp_comparison(df_processed):
+    """SERP comparison view"""
     
-    # Keyword selector first
+    if df_processed.empty:
+        st.error("No data available.")
+        return
+    
+    # Process datetime
+    df_processed['DateTime'] = df_processed['Date/Time'].apply(parse_excel_datetime)
+    df_processed = df_processed.dropna(subset=['DateTime'])
+    
+    # Header
+    st.markdown('<div class="section-title">⚖️ SERP Results Comparison</div>', unsafe_allow_html=True)
+    
+    # Keyword selector
     if 'Keyword' in df_processed.columns:
         available_keywords = sorted(df_processed['Keyword'].unique())
         selected_keyword = st.selectbox(
-            "🔍 Select keyword to compare SERP results:",
+            "Select keyword to compare:",
             available_keywords,
             key="serp_comparison_keyword"
         )
     else:
-        st.markdown('<div class="stError">❌ No "Keyword" column found in data</div>', unsafe_allow_html=True)
+        st.error("No keywords found")
         return
     
     if not selected_keyword:
         return
     
-    # Get available datetimes for selected keyword only - Show actual times from data
-    if 'DateTime' in df_processed.columns:
-        keyword_data = df_processed[df_processed['Keyword'] == selected_keyword].copy()
-        available_datetimes = sorted(keyword_data['DateTime'].dropna().unique())
-        
-        if len(available_datetimes) < 2:
-            st.markdown('<div class="stWarning">⚠️ Need at least 2 different times for comparison for this keyword.</div>', unsafe_allow_html=True)
-            st.markdown('<div class="stInfo">💡 This feature will be most useful when you have multiple data points.</div>', unsafe_allow_html=True)
-            
-            # Show what times we do have for this keyword
-            if len(available_datetimes) > 0:
-                st.markdown('<h4 style="color: #ffffff;">Available data times for this keyword:</h4>', unsafe_allow_html=True)
-                for dt in available_datetimes:
-                    if hasattr(dt, 'strftime'):
-                        st.markdown(f'<p style="color: #a0a9c0;">📅 {dt.strftime("%b %d, %Y at %I:%M:%S %p")}</p>', unsafe_allow_html=True)
-            return
-        
-        # Convert to readable format for display - show actual times with more detail
-        datetime_options = []
-        for dt in available_datetimes:
-            if hasattr(dt, 'strftime'):
-                # Format: "Jul 30, 2025 at 10:19:18 AM" 
-                display_time = dt.strftime('%b %d, %Y at %I:%M:%S %p')
-                datetime_options.append((display_time, dt))
-        
-        st.markdown(f'<p style="color: #10b981;">✅ Found {len(datetime_options)} data points for "{selected_keyword}"</p>', unsafe_allow_html=True)
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            selected_dt1_display = st.selectbox(
-                "📅 Select First Time (Baseline)",
-                options=[opt[0] for opt in datetime_options],
-                index=0,
-                key="datetime1"
-            )
-            # Get the actual datetime object
-            selected_dt1 = next(opt[1] for opt in datetime_options if opt[0] == selected_dt1_display)
-        
-        with col2:
-            selected_dt2_display = st.selectbox(
-                "📅 Select Second Time (Comparison)",
-                options=[opt[0] for opt in datetime_options],
-                index=len(datetime_options)-1,
-                key="datetime2"
-            )
-            # Get the actual datetime object
-            selected_dt2 = next(opt[1] for opt in datetime_options if opt[0] == selected_dt2_display)
-        
-        if selected_dt1 == selected_dt2:
-            st.markdown('<div class="stWarning">⚠️ Please select two different times for comparison.</div>', unsafe_allow_html=True)
-            return
-        
-        # Filter data for selected datetimes and keyword
-        data1 = keyword_data[keyword_data['DateTime'] == selected_dt1].copy()
-        data2 = keyword_data[keyword_data['DateTime'] == selected_dt2].copy()
-        
-        if data1.empty or data2.empty:
-            st.markdown('<div class="stError">❌ No data found for one or both selected times for this keyword.</div>', unsafe_allow_html=True)
-            return
-        
-        # Get data for selected keyword
-        kw_data1 = data1.iloc[0] if not data1.empty else None
-        kw_data2 = data2.iloc[0] if not data2.empty else None
-        
-        if kw_data1 is None and kw_data2 is None:
-            st.markdown('<div class="stError">❌ No data found for selected keyword at either time.</div>', unsafe_allow_html=True)
-            return
-        
-        st.markdown(f'<h3 class="section-header">🔍 SERP Comparison for "{selected_keyword}"</h3>', unsafe_allow_html=True)
-        
-        # Extract SERP results for both dates
-        def extract_serp_results(data_row):
-            if data_row is None:
-                return {}
-            
-            results = {}
-            position_columns = ['Position 1', 'Position 2', 'Position 3', 'Position 4', 'Position 5']
-            
-            for i, col in enumerate(position_columns, 1):
-                if col in data_row and pd.notna(data_row[col]) and data_row[col]:
-                    url = str(data_row[col])
-                    # Extract domain from URL for display
-                    try:
-                        domain = urlparse(url).netloc
-                        domain = domain.replace('www.', '') if domain.startswith('www.') else domain
-                    except:
-                        domain = url[:30] + "..." if len(url) > 30 else url
-                    
-                    results[i] = {
-                        'url': url,
-                        'domain': domain,
-                        'is_recharge': 'recharge.com' in url.lower()
-                    }
-            
-            return results
-        
-        serp1 = extract_serp_results(kw_data1)
-        serp2 = extract_serp_results(kw_data2)
-        
-        # Calculate changes
-        all_urls = set()
-        if serp1:
-            all_urls.update(result['url'] for result in serp1.values())
-        if serp2:
-            all_urls.update(result['url'] for result in serp2.values())
-        
-        # Track URL movements
-        url_changes = {}
-        improved_count = 0
-        declined_count = 0
-        new_count = 0
-        lost_count = 0
-        
-        for url in all_urls:
-            pos1 = None
-            pos2 = None
-            
-            # Find positions
-            for pos, result in serp1.items():
-                if result['url'] == url:
-                    pos1 = pos
-                    break
-            
-            for pos, result in serp2.items():
-                if result['url'] == url:
-                    pos2 = pos
-                    break
-            
-            # Determine change type
-            if pos1 is None and pos2 is not None:
-                change_type = "new"
-                new_count += 1
-            elif pos1 is not None and pos2 is None:
-                change_type = "lost"
-                lost_count += 1
-            elif pos1 is not None and pos2 is not None:
-                if pos1 > pos2:  # Lower position number = better ranking
-                    change_type = "improved"
-                    improved_count += 1
-                elif pos1 < pos2:
-                    change_type = "declined"
-                    declined_count += 1
-                else:
-                    change_type = "stable"
-            else:
-                change_type = "stable"
-            
-            url_changes[url] = {
-                'pos1': pos1,
-                'pos2': pos2,
-                'change_type': change_type
-            }
-        
-        # Summary badges
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.markdown(f"""
-            <div style="background: #10b981; color: white; padding: 0.8rem; border-radius: 12px; text-align: center; font-weight: bold;">
-                📈 Improved: {improved_count}
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col2:
-            st.markdown(f"""
-            <div style="background: #ef4444; color: white; padding: 0.8rem; border-radius: 12px; text-align: center; font-weight: bold;">
-                📉 Declined: {declined_count}
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col3:
-            st.markdown(f"""
-            <div style="background: #3b82f6; color: white; padding: 0.8rem; border-radius: 12px; text-align: center; font-weight: bold;">
-                🆕 New: {new_count}
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col4:
-            st.markdown(f"""
-            <div style="background: #f59e0b; color: white; padding: 0.8rem; border-radius: 12px; text-align: center; font-weight: bold;">
-                ❌ Lost: {lost_count}
-            </div>
-            """, unsafe_allow_html=True)
-        
-        st.markdown("<br>", unsafe_allow_html=True)
-        
-        # Side-by-side SERP comparison
-        col_left, col_right = st.columns(2)
-        
-        with col_left:
-            st.markdown(f"""
-            <div style="background: #1a1a2e; border-radius: 12px; padding: 1.5rem; border: 1px solid #667eea;">
-                <h3 style="text-align: center; color: #ffffff; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid #667eea;">
-                    📅 {selected_dt1.strftime('%b %d, %Y at %I:%M %p')}
-                </h3>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # Show SERP results for datetime1
-            if serp1:
-                for position in range(1, 6):
-                    if position in serp1:
-                        result = serp1[position]
-                        border_color = "#f59e0b" if result['is_recharge'] else "#667eea"
-                        
-                        st.markdown(f"""
-                        <div style="background: #16213e; border-radius: 8px; padding: 1rem; margin: 0.5rem 0; border-left: 4px solid {border_color}; display: flex; align-items: center;">
-                            <div style="background: {border_color}; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 1rem; font-size: 14px;">
-                                {position}
-                            </div>
-                            <div style="flex: 1;">
-                                <div style="color: #ffffff; font-weight: 600; margin-bottom: 0.3rem; font-size: 0.9rem;">{result['domain']}</div>
-                                <div style="color: #a0a9c0; font-size: 0.8rem; word-break: break-all;">{result['url'][:60]}{"..." if len(result['url']) > 60 else ""}</div>
-                                {'<div style="color: #f59e0b; font-size: 0.8rem; font-weight: bold;">🔋 Recharge.com</div>' if result['is_recharge'] else ''}
-                            </div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                    else:
-                        st.markdown(f"""
-                        <div style="background: #16213e; border-radius: 8px; padding: 1rem; margin: 0.5rem 0; border-left: 4px solid #6b7280; opacity: 0.5;">
-                            <div style="color: #6b7280; text-align: center;">Position {position} - No data</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-            else:
-                st.markdown('<div style="color: #6b7280; text-align: center; padding: 2rem;">No SERP data available</div>', unsafe_allow_html=True)
-        
-        with col_right:
-            st.markdown(f"""
-            <div style="background: #1a1a2e; border-radius: 12px; padding: 1.5rem; border: 1px solid #667eea;">
-                <h3 style="text-align: center; color: #ffffff; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid #667eea;">
-                    📅 {selected_dt2.strftime('%b %d, %Y at %I:%M %p')}
-                </h3>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # Show SERP results for datetime2
-            if serp2:
-                for position in range(1, 6):
-                    if position in serp2:
-                        result = serp2[position]
-                        url = result['url']
-                        change_info = url_changes.get(url, {})
-                        change_type = change_info.get('change_type', 'stable')
-                        
-                        # Determine colors and change indicator
-                        if change_type == "improved":
-                            border_color = "#10b981"
-                            change_text = f"📈 +{change_info['pos1'] - position}" if change_info.get('pos1') else "📈 UP"
-                        elif change_type == "declined":
-                            border_color = "#ef4444"
-                            change_text = f"📉 -{position - change_info['pos1']}" if change_info.get('pos1') else "📉 DOWN"
-                        elif change_type == "new":
-                            border_color = "#3b82f6"
-                            change_text = "🆕 NEW"
-                        elif change_type == "lost":
-                            border_color = "#f59e0b"
-                            change_text = "❌ LOST"
-                        else:
-                            border_color = "#f59e0b" if result['is_recharge'] else "#667eea"
-                            change_text = ""
-                        
-                        st.markdown(f"""
-                        <div style="background: #16213e; border-radius: 8px; padding: 1rem; margin: 0.5rem 0; border-left: 4px solid {border_color}; display: flex; align-items: center;">
-                            <div style="background: {border_color}; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 1rem; font-size: 14px;">
-                                {position}
-                            </div>
-                            <div style="flex: 1;">
-                                <div style="color: #ffffff; font-weight: 600; margin-bottom: 0.3rem; font-size: 0.9rem;">{result['domain']}</div>
-                                <div style="color: #a0a9c0; font-size: 0.8rem; word-break: break-all;">{result['url'][:60]}{"..." if len(result['url']) > 60 else ""}</div>
-                                {'<div style="color: #f59e0b; font-size: 0.8rem; font-weight: bold;">🔋 Recharge.com</div>' if result['is_recharge'] else ''}
-                            </div>
-                            {f'<div style="background: {border_color}; color: white; padding: 0.3rem 0.8rem; border-radius: 12px; font-size: 0.8rem; font-weight: bold; margin-left: 0.5rem;">{change_text}</div>' if change_text else ''}
-                        </div>
-                        """, unsafe_allow_html=True)
-                    else:
-                        st.markdown(f"""
-                        <div style="background: #16213e; border-radius: 8px; padding: 1rem; margin: 0.5rem 0; border-left: 4px solid #6b7280; opacity: 0.5;">
-                            <div style="color: #6b7280; text-align: center;">Position {position} - No data</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-            else:
-                st.markdown('<div style="color: #6b7280; text-align: center; padding: 2rem;">No SERP data available</div>', unsafe_allow_html=True)
-        
-        # Recharge.com Position Analysis
-        st.markdown('<h3 class="section-header">🔋 Recharge.com Position Analysis</h3>', unsafe_allow_html=True)
-        
-        recharge_pos1 = kw_data1['Recharge Position'] if kw_data1 is not None and 'Recharge Position' in kw_data1 else None
-        recharge_pos2 = kw_data2['Recharge Position'] if kw_data2 is not None and 'Recharge Position' in kw_data2 else None
-        
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            pos1_display = str(int(recharge_pos1)) if isinstance(recharge_pos1, (int, float)) else "Not Ranking"
-            st.metric(f"Position at {selected_dt1.strftime('%b %d, %I:%M %p')}", pos1_display)
-        
-        with col2:
-            pos2_display = str(int(recharge_pos2)) if isinstance(recharge_pos2, (int, float)) else "Not Ranking"
-            st.metric(f"Position at {selected_dt2.strftime('%b %d, %I:%M %p')}", pos2_display)
-        
-        with col3:
-            if isinstance(recharge_pos1, (int, float)) and isinstance(recharge_pos2, (int, float)):
-                change = recharge_pos1 - recharge_pos2  # Positive = improvement
-                if change > 0:
-                    st.metric("Change", f"📈 +{change}", delta=f"Improved by {change} positions")
-                elif change < 0:
-                    st.metric("Change", f"📉 {change}", delta=f"Declined by {abs(change)} positions")
-                else:
-                    st.metric("Change", "➡️ No Change", delta="Position maintained")
-            else:
-                st.metric("Change", "❓ Unknown", delta="Missing data")
-        
-        # AI Overview and Full Results Data Section
-        st.markdown('<h3 class="section-header">🔍 Detailed Content Analysis</h3>', unsafe_allow_html=True)
-        
-        col_ai1, col_ai2 = st.columns(2)
-        
-        with col_ai1:
-            st.markdown(f'<h4 style="color: #ffffff;">📅 {selected_dt1.strftime("%b %d, %Y at %I:%M %p")}</h4>', unsafe_allow_html=True)
-            
-            if kw_data1 is not None:
-                ai_content1 = kw_data1.get('AI Overview', '')
-                ai_status1 = "🤖 Yes" if has_ai_overview(ai_content1) else "❌ No"
-                st.markdown(f'<p style="color: #a0a9c0;">AI Overview: {ai_status1}</p>', unsafe_allow_html=True)
-                
-                if has_ai_overview(ai_content1):
-                    with st.expander(f"🤖 AI Overview Content - {selected_dt1_display}", expanded=False):
-                        st.text_area(
-                            f"AI Overview content",
-                            ai_content1,
-                            height=200,
-                            key=f"aio_content_1_{selected_keyword}",
-                            label_visibility="collapsed"
-                        )
-                
-                if 'Full Results Data' in kw_data1:
-                    with st.expander(f"📄 Full Results Data - {selected_dt1_display}", expanded=False):
-                        full_results = kw_data1.get('Full Results Data', '')
-                        if pd.notna(full_results) and full_results and str(full_results) != '#ERROR!':
-                            st.text_area(
-                                f"Complete search results",
-                                full_results,
-                                height=300,
-                                key=f"full_results_1_{selected_keyword}",
-                                label_visibility="collapsed"
-                            )
-                        else:
-                            st.write("No full results data available")
-            else:
-                st.write("No data available for this time")
-        
-        with col_ai2:
-            st.markdown(f'<h4 style="color: #ffffff;">📅 {selected_dt2.strftime("%b %d, %Y at %I:%M %p")}</h4>', unsafe_allow_html=True)
-            
-            if kw_data2 is not None:
-                ai_content2 = kw_data2.get('AI Overview', '')
-                ai_status2 = "🤖 Yes" if has_ai_overview(ai_content2) else "❌ No"
-                st.markdown(f'<p style="color: #a0a9c0;">AI Overview: {ai_status2}</p>', unsafe_allow_html=True)
-                
-                if has_ai_overview(ai_content2):
-                    with st.expander(f"🤖 AI Overview Content - {selected_dt2_display}", expanded=False):
-                        st.text_area(
-                            f"AI Overview content",
-                            ai_content2,
-                            height=200,
-                            key=f"aio_content_2_{selected_keyword}",
-                            label_visibility="collapsed"
-                        )
-                
-                if 'Full Results Data' in kw_data2:
-                    with st.expander(f"📄 Full Results Data - {selected_dt2_display}", expanded=False):
-                        full_results = kw_data2.get('Full Results Data', '')
-                        if pd.notna(full_results) and full_results and str(full_results) != '#ERROR!':
-                            st.text_area(
-                                f"Complete search results",
-                                full_results,
-                                height=300,
-                                key=f"full_results_2_{selected_keyword}",
-                                label_visibility="collapsed"
-                            )
-                        else:
-                            st.write("No full results data available")
-            else:
-                st.write("No data available for this time")
-        
-        # Export functionality
-        st.markdown('<h3 class="section-header">📥 Export SERP Comparison</h3>', unsafe_allow_html=True)
-        
-        # Create detailed export data
-        export_data = []
-        
-        # Export SERP positions
-        for position in range(1, 6):
-            row = {'Position': position}
-            
-            if position in serp1:
-                row[f'URL_{selected_dt1_display}'] = serp1[position]['url']
-                row[f'Domain_{selected_dt1_display}'] = serp1[position]['domain']
-            else:
-                row[f'URL_{selected_dt1_display}'] = ""
-                row[f'Domain_{selected_dt1_display}'] = ""
-            
-            if position in serp2:
-                row[f'URL_{selected_dt2_display}'] = serp2[position]['url']
-                row[f'Domain_{selected_dt2_display}'] = serp2[position]['domain']
-            else:
-                row[f'URL_{selected_dt2_display}'] = ""
-                row[f'Domain_{selected_dt2_display}'] = ""
-            
-            export_data.append(row)
-        
-        # Add Recharge position data
-        export_data.append({
-            'Position': 'Recharge.com',
-            f'URL_{selected_dt1_display}': f'Position {recharge_pos1}' if recharge_pos1 else 'Not Ranking',
-            f'Domain_{selected_dt1_display}': 'recharge.com',
-            f'URL_{selected_dt2_display}': f'Position {recharge_pos2}' if recharge_pos2 else 'Not Ranking',
-            f'Domain_{selected_dt2_display}': 'recharge.com'
-        })
-        
-        export_df = pd.DataFrame(export_data)
-        csv_data = export_df.to_csv(index=False)
-        
-        st.download_button(
-            label="📥 Download SERP Comparison as CSV",
-            data=csv_data,
-            file_name=f"serp_comparison_{selected_keyword.replace(' ', '_')}_{selected_dt1.strftime('%Y%m%d_%H%M%S')}_vs_{selected_dt2.strftime('%Y%m%d_%H%M%S')}.csv",
-            mime="text/csv"
+    # Get available datetimes for selected keyword
+    keyword_data = df_processed[df_processed['Keyword'] == selected_keyword].copy()
+    available_datetimes = sorted(keyword_data['DateTime'].dropna().unique())
+    
+    if len(available_datetimes) < 2:
+        st.warning("Need at least 2 data points for comparison.")
+        return
+    
+    # Date selectors
+    datetime_options = [(dt.strftime('%b %d, %Y at %I:%M %p'), dt) for dt in available_datetimes]
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        selected_dt1_display = st.selectbox(
+            "Select First Time (Baseline):",
+            options=[opt[0] for opt in datetime_options],
+            index=0,
+            key="datetime1"
         )
+        selected_dt1 = next(opt[1] for opt in datetime_options if opt[0] == selected_dt1_display)
+    
+    with col2:
+        selected_dt2_display = st.selectbox(
+            "Select Second Time (Comparison):",
+            options=[opt[0] for opt in datetime_options],
+            index=len(datetime_options)-1,
+            key="datetime2"
+        )
+        selected_dt2 = next(opt[1] for opt in datetime_options if opt[0] == selected_dt2_display)
+    
+    if selected_dt1 == selected_dt2:
+        st.warning("Please select two different times for comparison.")
+        return
+    
+    # Get data for comparison
+    data1 = keyword_data[keyword_data['DateTime'] == selected_dt1].iloc[0] if not keyword_data[keyword_data['DateTime'] == selected_dt1].empty else None
+    data2 = keyword_data[keyword_data['DateTime'] == selected_dt2].iloc[0] if not keyword_data[keyword_data['DateTime'] == selected_dt2].empty else None
+    
+    if data1 is None or data2 is None:
+        st.error("No data found for selected times.")
+        return
+    
+    # Comparison results
+    st.markdown(f'<div class="section-title">🔍 SERP Comparison: {selected_keyword}</div>', unsafe_allow_html=True)
+    
+    # Recharge position comparison
+    col1, col2, col3 = st.columns(3)
+    
+    pos1 = data1.get('Recharge Position', 'Unknown')
+    pos2 = data2.get('Recharge Position', 'Unknown')
+    
+    with col1:
+        st.markdown(create_metric_card("Baseline Position", pos1), unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown(create_metric_card("Current Position", pos2), unsafe_allow_html=True)
+    
+    with col3:
+        if isinstance(pos1, (int, float)) and isinstance(pos2, (int, float)):
+            change = pos1 - pos2  # Positive = improvement
+            if change > 0:
+                change_text = f"📈 Improved by {change}"
+            elif change < 0:
+                change_text = f"📉 Declined by {abs(change)}"
+            else:
+                change_text = "➡️ No Change"
+        else:
+            change_text = "❓ Unknown"
         
-    else:
-        st.markdown('<div class="stError">❌ No datetime information found in the data.</div>', unsafe_allow_html=True)
+        st.markdown(create_metric_card("Position Change", change_text), unsafe_allow_html=True)
 
 def main():
-    # Header
-    st.markdown("""
-    <div class='main-header'>
-        <h1>🔋 RECHARGE.COM</h1>
-        <h3>Advanced Ranking Tracker Dashboard</h3>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Auto-load data from Google Sheets
-    st.markdown('<h3 style="color: #ffffff;">📊 Live Data from Google Sheets</h3>', unsafe_allow_html=True)
-    
-    with st.spinner('🔄 Loading data from Google Sheets...'):
+    # Load data
+    with st.spinner('Loading data...'):
         df = load_data_from_google_sheets()
     
     if df.empty:
-        st.error("⚠️ No data could be loaded from Google Sheets. Please check the sheet permissions.")
         st.markdown("""
-        ### 🔧 Troubleshooting Steps:
-        1. **Make Google Sheet Public**: Share → Anyone with link → Viewer
-        2. **Check Sheet Structure**: Should have Date/Time, Keyword, Recharge Position columns
-        3. **Multiple Sheets**: The system tries to read multiple sheets with different GIDs
-        """)
-        st.stop()
+        <div class="dashboard-header">
+            <h1>🔋 Recharge.com SEO Dashboard</h1>
+            <p>Unable to connect to data source</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.error("No data could be loaded. Please check Google Sheets connectivity.")
+        st.info("Make sure the Google Sheet is shared publicly (Anyone with the link can view)")
         return
     
-    # Show raw data sample for debugging
-    with st.expander("🔍 Raw Data Analysis", expanded=False):
-        st.markdown("**Raw Data Sample:**")
-        st.dataframe(df.head(5))
-        st.markdown(f"**Total rows loaded:** {len(df)}")
-        st.markdown(f"**Columns found:** {list(df.columns)}")
-        
-        # Show datetime samples
-        if 'Date/Time' in df.columns:
-            st.markdown("**Date/Time samples:**")
-            date_samples = df['Date/Time'].dropna().head(5).tolist()
-            for i, sample in enumerate(date_samples):
-                st.markdown(f"- Row {i+1}: `{sample}` (type: {type(sample).__name__})")
-    
-    # Process data
-    df_processed = df.copy()
-    
-    # Use actual keyword from data
-    if 'Keyword' in df_processed.columns:
-        df_processed['Keyword_Clean'] = df_processed['Keyword']
-    else:
-        st.markdown('<div class="stError">❌ No "Keyword" column found in data</div>', unsafe_allow_html=True)
-        return
-    
-    # Extract language and location from sheet names
-    if 'Sheet_Name' in df_processed.columns:
-        df_processed[['Keyword_From_Sheet', 'Language', 'Location']] = df_processed['Sheet_Name'].apply(
-            lambda x: pd.Series(parse_sheet_info(x))
-        )
-        # If no Market column, create from location
-        if 'Market' not in df_processed.columns:
-            df_processed['Market'] = df_processed['Location'].apply(get_country_flag)
-    
-    # Initialize parsing_info
-    parsing_info = None
-    
-    # Convert datetime - DIRECT approach for exact Excel column parsing
-    if 'Date/Time' in df_processed.columns:
-        st.sidebar.markdown("---")
-        st.sidebar.markdown('<h3 style="color: #ffffff;">🔍 Raw Date/Time Data</h3>', unsafe_allow_html=True)
-        
-        # Show first few raw values exactly as they are in Excel
-        raw_samples = df_processed['Date/Time'].dropna().head(5).tolist()
-        for i, raw_date in enumerate(raw_samples):
-            st.sidebar.markdown(f'<p style="color: #a0a9c0; font-size: 11px;">Row {i+1}: "{raw_date}" (type: {type(raw_date).__name__})</p>', unsafe_allow_html=True)
-        
-        # Simple parsing - let pandas handle it directly
-        def parse_excel_datetime(date_val):
-            if pd.isna(date_val):
-                return pd.NaT
-            
-            # If it's already a datetime object from Excel, return as-is
-            if isinstance(date_val, (pd.Timestamp, datetime.datetime)):
-                return pd.Timestamp(date_val)
-            
-            # Convert to string and try parsing
-            date_str = str(date_val).strip()
-            
-            # Try pandas with different settings
-            try:
-                # First try - let pandas infer everything
-                result = pd.to_datetime(date_str, errors='coerce', infer_datetime_format=True)
-                if pd.notna(result):
-                    return result
-            except:
-                pass
-            
-            # Manual format matching for your specific format
-            # Pattern: 7/30/2025, 10:19:18 AM
-            pattern = r'(\d{1,2})/(\d{1,2})/(\d{4}),?\s+(\d{1,2}):(\d{2}):(\d{2})\s+(AM|PM)'
-            match = re.match(pattern, date_str)
-            
-            if match:
-                month, day, year, hour, minute, second, ampm = match.groups()
-                hour = int(hour)
-                if ampm.upper() == 'PM' and hour != 12:
-                    hour += 12
-                elif ampm.upper() == 'AM' and hour == 12:
-                    hour = 0
-                
-                try:
-                    dt = datetime.datetime(int(year), int(month), int(day), hour, int(minute), int(second))
-                    return pd.Timestamp(dt)
-                except:
-                    pass
-            
-            return pd.NaT
-        
-        # Apply parsing
-        df_processed['DateTime'] = df_processed['Date/Time'].apply(parse_excel_datetime)
-        
-        # Check results
-        successful = df_processed['DateTime'].notna().sum()
-        total = len(df_processed)
-        failed = total - successful
-        
-        st.sidebar.markdown(f'<p style="color: #10b981; font-size: 12px;">✅ Parsed: {successful}/{total}</p>', unsafe_allow_html=True)
-        if failed > 0:
-            st.sidebar.markdown(f'<p style="color: #ef4444; font-size: 12px;">❌ Failed: {failed}</p>', unsafe_allow_html=True)
-        
-        # Show parsed results
-        if successful > 0:
-            parsed_samples = df_processed[df_processed['DateTime'].notna()]['DateTime'].head(3)
-            st.sidebar.markdown('<p style="color: #10b981; font-size: 11px;">Parsed results:</p>', unsafe_allow_html=True)
-            for i, parsed_dt in enumerate(parsed_samples):
-                formatted = parsed_dt.strftime('%m/%d/%Y %I:%M:%S %p')
-                st.sidebar.markdown(f'<p style="color: #10b981; font-size: 11px;">✅ {formatted}</p>', unsafe_allow_html=True)
-        
-        # Remove failed parsing rows
-        df_processed = df_processed.dropna(subset=['DateTime'])
-        latest_data = df_processed.sort_values('DateTime').groupby('Keyword_Clean').tail(1).reset_index(drop=True)
-        
-        parsing_info = {
-            'successful_parse': successful,
-            'total_rows': total,
-            'removed_rows': failed
-        }
-    else:
-        parsing_info = None
-        latest_data = df_processed.groupby('Keyword_Clean').tail(1).reset_index(drop=True)
-    
-    # Sidebar Navigation
-    st.sidebar.markdown('<h2 style="color: #ffffff;">🎛️ Navigation</h2>', unsafe_allow_html=True)
+    # Sidebar navigation
+    st.sidebar.markdown("""
+    <div style="padding: 1rem 0;">
+        <h2 style="color: white; margin-bottom: 1rem;">📊 Navigation</h2>
+    </div>
+    """, unsafe_allow_html=True)
     
     page = st.sidebar.radio(
-        "Select Page",
-        ["📊 Dashboard Overview", "📈 Keyword Tracking", "🤖 AI Overview Tracking", "📅 Date Comparison"],
+        "Select View:",
+        ["🏠 Executive Dashboard", "🎯 Keyword Analysis", "⚖️ SERP Comparison"],
         key="main_nav"
     )
     
-    # Filters (not for Date Comparison or AI Overview pages)
-    if page not in ["📅 Date Comparison", "🤖 AI Overview Tracking"]:
-        st.sidebar.markdown("---")
-        st.sidebar.markdown('<h3 style="color: #ffffff;">🎯 Filters</h3>', unsafe_allow_html=True)
-        
-        # Market filter
-        if 'Market' in latest_data.columns:
-            markets = ['All Markets'] + sorted(latest_data['Market'].unique().tolist())
-            selected_market = st.sidebar.selectbox("🌍 Market", markets)
-        else:
-            selected_market = 'All Markets'
-        
-        # Position filter
-        position_options = ['All Positions', 'Top 3 (1-3)', 'Positions 4-10', 'Not Ranking']
-        selected_position = st.sidebar.selectbox("📍 Position Range", position_options)
-        
-        # Apply filters
-        filtered_data = latest_data.copy()
-        
-        if selected_market != 'All Markets' and 'Market' in filtered_data.columns:
-            filtered_data = filtered_data[filtered_data['Market'] == selected_market]
-        
-        if 'Recharge Position' in filtered_data.columns:
-            if selected_position == 'Top 3 (1-3)':
-                filtered_data = filtered_data[
-                    filtered_data['Recharge Position'].apply(
-                        lambda x: isinstance(x, (int, float)) and 1 <= x <= 3
-                    )
-                ]
-            elif selected_position == 'Positions 4-10':
-                filtered_data = filtered_data[
-                    filtered_data['Recharge Position'].apply(
-                        lambda x: isinstance(x, (int, float)) and 4 <= x <= 10
-                    )
-                ]
-            elif selected_position == 'Not Ranking':
-                filtered_data = filtered_data[
-                    filtered_data['Recharge Position'].apply(
-                        lambda x: str(x).lower() in ['not ranking', 'lost', ''] or pd.isna(x)
-                    )
-                ]
-    else:
-        filtered_data = latest_data.copy()
-    
-    # Show some debug info
+    # Show data summary in sidebar
     st.sidebar.markdown("---")
-    st.sidebar.markdown('<h3 style="color: #ffffff;">📊 Data Info</h3>', unsafe_allow_html=True)
-    st.sidebar.markdown(f'<p style="color: #ffffff;">Total rows: {len(df)}</p>', unsafe_allow_html=True)
+    st.sidebar.markdown(f"**📈 Data Summary**")
+    st.sidebar.markdown(f"Total Records: {len(df)}")
     if 'Keyword' in df.columns:
-        st.sidebar.markdown(f'<p style="color: #ffffff;">Unique keywords: {df["Keyword"].nunique()}</p>', unsafe_allow_html=True)
+        st.sidebar.markdown(f"Keywords: {df['Keyword'].nunique()}")
     
-    # Show datetime parsing debug info
-    if parsing_info:
-        st.sidebar.markdown('<h3 style="color: #ffffff;">🔍 DateTime Parsing</h3>', unsafe_allow_html=True)
-        st.sidebar.markdown(f'<p style="color: #a0a9c0; font-size: 12px;">Parsed: {parsing_info["successful_parse"]}/{parsing_info["total_rows"]} dates</p>', unsafe_allow_html=True)
-        
-        if parsing_info["removed_rows"] > 0:
-            st.sidebar.markdown(f'<p style="color: #f59e0b; font-size: 12px;">⚠️ Removed {parsing_info["removed_rows"]} rows with invalid dates</p>', unsafe_allow_html=True)
-        else:
-            st.sidebar.markdown('<p style="color: #10b981; font-size: 12px;">✅ All dates parsed successfully!</p>', unsafe_allow_html=True)
-        
-        # Show sample of parsed times
-        if parsing_info["successful_parse"] > 0:
-            sample_times = df_processed[df_processed['DateTime'].notna()]['DateTime'].head(3)
-            st.sidebar.markdown('<p style="color: #10b981; font-size: 11px;">Sample parsed times:</p>', unsafe_allow_html=True)
-            for i, dt in enumerate(sample_times):
-                formatted = dt.strftime('%b %d, %Y at %I:%M:%S %p')
-                st.sidebar.markdown(f'<p style="color: #10b981; font-size: 11px;">• {formatted}</p>', unsafe_allow_html=True)
-    
-    # Page routing
-    if page == "📊 Dashboard Overview":
-        show_dashboard_overview(latest_data, filtered_data)
-    elif page == "📈 Keyword Tracking":
-        show_keyword_tracking(df_processed, filtered_data)
-    elif page == "🤖 AI Overview Tracking":
-        show_ai_overview_tracking(df_processed)
-    elif page == "📅 Date Comparison":
-        show_date_comparison(df_processed)
+    # Route to appropriate page
+    if page == "🏠 Executive Dashboard":
+        show_executive_dashboard(df)
+    elif page == "🎯 Keyword Analysis":
+        show_keyword_analysis(df)
+    elif page == "⚖️ SERP Comparison":
+        show_serp_comparison(df)
 
 if __name__ == "__main__":
     main()
