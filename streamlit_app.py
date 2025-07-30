@@ -14,10 +14,20 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Simple, clean CSS
+# Dark theme with white fonts
 st.markdown("""
 <style>
-    /* Clean, readable styling */
+    /* Dark theme styling */
+    .stApp {
+        background-color: #0f1419;
+        color: #ffffff;
+    }
+    
+    .main .block-container {
+        background-color: #0f1419;
+        color: #ffffff;
+    }
+    
     .main-header {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         padding: 2rem;
@@ -25,12 +35,14 @@ st.markdown("""
         margin-bottom: 2rem;
         color: white;
         text-align: center;
+        box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
     }
     
     .main-header h1 {
         font-weight: 700;
         font-size: 3rem;
         margin: 0;
+        color: white !important;
     }
     
     .main-header h3 {
@@ -38,29 +50,148 @@ st.markdown("""
         font-size: 1.5rem;
         margin: 0.5rem 0 0 0;
         opacity: 0.9;
+        color: white !important;
     }
     
     .section-header {
         font-weight: 600;
         font-size: 1.8rem;
-        color: #1f2937;
+        color: #ffffff !important;
         margin: 2rem 0 1rem 0;
         padding-bottom: 0.5rem;
         border-bottom: 3px solid #667eea;
     }
     
-    /* Fix text readability */
-    .stMarkdown, .stText {
-        color: #1f2937 !important;
+    /* All text should be white */
+    .stMarkdown, .stMarkdown p, .stMarkdown div, .stMarkdown span, .stText {
+        color: #ffffff !important;
     }
     
-    /* Metric styling */
+    .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4, .stMarkdown h5, .stMarkdown h6 {
+        color: #ffffff !important;
+    }
+    
+    /* Metric styling - dark cards with white text */
     .stMetric {
-        background: white;
-        padding: 1rem;
-        border-radius: 8px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.3);
         border-left: 4px solid #667eea;
+        color: #ffffff !important;
+    }
+    
+    .stMetric label {
+        color: #ffffff !important;
+        font-weight: 600;
+    }
+    
+    .stMetric [data-testid="metric-value"] {
+        color: #ffffff !important;
+        font-weight: 700;
+    }
+    
+    .stMetric [data-testid="metric-delta"] {
+        color: #a0a9c0 !important;
+    }
+    
+    /* File uploader styling */
+    .stFileUploader {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        border-radius: 12px;
+        padding: 1rem;
+        border: 2px dashed #667eea;
+    }
+    
+    .stFileUploader label {
+        color: #ffffff !important;
+    }
+    
+    /* Dataframe styling */
+    .stDataFrame {
+        background: #1a1a2e;
+        border-radius: 12px;
+        border: 1px solid #667eea;
+    }
+    
+    /* Selectbox and other inputs */
+    .stSelectbox label, .stRadio label, .stCheckbox label, .stDateInput label {
+        color: #ffffff !important;
+        font-weight: 500;
+    }
+    
+    /* Sidebar styling */
+    .css-1d391kg {
+        background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
+    }
+    
+    .css-1d391kg .stMarkdown {
+        color: #ffffff !important;
+    }
+    
+    .css-1d391kg .stSelectbox label, 
+    .css-1d391kg .stRadio label, 
+    .css-1d391kg .stCheckbox label, 
+    .css-1d391kg .stDateInput label {
+        color: #ffffff !important;
+        font-weight: 500;
+    }
+    
+    /* Warning and info boxes */
+    .stWarning {
+        background: #2d1b4e;
+        color: #ffffff;
+        border: 1px solid #667eea;
+    }
+    
+    .stInfo {
+        background: #1a2332;
+        color: #ffffff;
+        border: 1px solid #3b82f6;
+    }
+    
+    .stSuccess {
+        background: #1a3329;
+        color: #ffffff;
+        border: 1px solid #10b981;
+    }
+    
+    .stError {
+        background: #3d1a1a;
+        color: #ffffff;
+        border: 1px solid #ef4444;
+    }
+    
+    /* Button styling */
+    .stButton > button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 0.5rem 1.5rem;
+        font-weight: 500;
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
+    }
+    
+    /* Spinner styling */
+    .stSpinner {
+        color: #667eea !important;
+    }
+    
+    /* Download button styling */
+    .stDownloadButton > button {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 0.5rem 1.5rem;
+        font-weight: 500;
     }
 </style>
 """, unsafe_allow_html=True)
