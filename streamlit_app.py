@@ -198,89 +198,46 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Simple data loading function
-@st.cache_data(ttl=300)
-def load_data_from_excel(uploaded_file):
-    """Load data from uploaded Excel file"""
+@st.cache_data(ttl=60)  # Cache for 1 minute to allow frequent updates
+def load_data_from_google_sheets():
+    """Load data directly from the specified Google Sheets"""
+    
+    # Your Google Sheets URL
+    sheet_id = "1hOMEaZ_zfliPxJ7N-9EJ64KvyRl9J-feoR30GB-bI_o"
+    csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid=0"
+    
     try:
-        xl_file = pd.ExcelFile(uploaded_file)
+        # Read the data
+        df = pd.read_csv(csv_url)
         
-        # Get keyword sheets (exclude Main, Admin sheets)
-        keyword_sheets = [sheet for sheet in xl_file.sheet_names 
-                         if sheet not in ['Main', 'ADMIN', '⚙️ ADMIN']]
+        if df.empty:
+            st.error("⚠️ The Google Sheet appears to be empty")
+            return pd.DataFrame()
         
-        all_data = []
+        # Add sheet name for consistency
+        df['Sheet_Name'] = 'buy_neosurf_online'
         
-        for sheet_name in keyword_sheets:
-            try:
-                df_sheet = pd.read_excel(uploaded_file, sheet_name=sheet_name)
-                
-                if df_sheet.empty or len(df_sheet.columns) < 5:
-                    continue
-                
-                df_sheet['Sheet_Name'] = sheet_name
-                
-                # Don't filter by Keyword column existence, just add all sheets
-                all_data.append(df_sheet)
-                    
-            except Exception as e:
-                st.warning(f"Error reading sheet {sheet_name}: {e}")
-                continue
+        return df
         
-        if all_data:
-            combined_df = pd.concat(all_data, ignore_index=True)
-            return combined_df
-        else:
-            return get_sample_data()
-            
     except Exception as e:
-        st.error(f"Error reading Excel file: {e}")
-        return get_sample_data()
+        st.error(f"❌ Error reading Google Sheets: {str(e)}")
+        st.markdown("""
+        **Make sure the Google Sheet is publicly accessible:**
+        1. Open the Google Sheet
+        2. Click Share button (top right)
+        3. Change to "Anyone with the link" can view
+        4. Copy the link and refresh this page
+        """)
+        return pd.DataFrame()
 
 def get_sample_data():
-    """Simple sample data for demo"""
-    dates = pd.date_range('2025-07-25', periods=6, freq='D')
-    
-    keywords_data = [
-        ('t-mobile prepaid refill number', 'en', 'us', '🇺🇸 United States'),
-        ('recarga digi', 'es', 'es', '🇪🇸 Spain'),
-        ('recarga digi online', 'es', 'es', '🇪🇸 Spain'),
-        ('ricarica iliad', 'it', 'it', '🇮🇹 Italy'),
-        ('ricarica iliad online', 'it', 'it', '🇮🇹 Italy'),
-        ('recharge transcash', 'fr', 'fr', '🇫🇷 France'),
-        ('transcash en ligne', 'fr', 'fr', '🇫🇷 France'),
-        ('buy robux', 'en', 'ph', '🇵🇭 Philippines'),
-        ('robux top up', 'en', 'ph', '🇵🇭 Philippines'),
-        ('flexy mobilis', 'fr', 'dz', '🇩🇿 Algeria'),
-        ('flexy mobilis en ligne', 'fr', 'dz', '🇩🇿 Algeria'),
-        ('neosurf', 'en', 'au', '🇦🇺 Australia'),
-        ('neosurf voucher', 'en', 'au', '🇦🇺 Australia'),
-        ('buy neosurf online', 'en', 'au', '🇦🇺 Australia')
-    ]
-    
-    sample_data = []
-    
-    for date in dates:
-        for keyword, lang, loc, market in keywords_data:
-            position = np.random.choice([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15])
-            ai_present = np.random.choice([True, False], p=[0.3, 0.7])
-            
-            change_options = ['Stable', 'Improved (+1)', 'Improved (+2)', 'Declined (-1)', 'Declined (-2)', 'New']
-            change = np.random.choice(change_options, p=[0.4, 0.15, 0.1, 0.15, 0.1, 0.1])
-            
-            sample_data.append({
-                'Date/Time': date.strftime('%Y-%m-%d %H:%M'),
-                'Keyword': keyword,
-                'Recharge Position': position,
-                'Position Change': change,
-                'AI Overview': f"Sample AI Overview content for {keyword}" if ai_present else None,
-                'AIO Links': f"Sample AI Overview links for {keyword}" if ai_present else None,
-                'Full Results Data': f"Sample SERP data for {keyword}",
-                'Sheet_Name': f'{keyword.replace(" ", "_")}_{lang}_{loc}',
-                'Market': market
-            })
-    
-    return pd.DataFrame(sample_data)
+    """Removed - no longer needed"""
+    return pd.DataFrame()
+
+@st.cache_data(ttl=300)
+def load_data_from_excel(uploaded_file):
+    """Removed - no longer needed"""
+    return pd.DataFrame()
 
 def parse_sheet_info(sheet_name):
     """Extract keyword, language, and location from sheet name"""
@@ -1312,36 +1269,24 @@ def main():
     </div>
     """, unsafe_allow_html=True)
     
-    # File upload section
-    st.markdown('<h3 style="color: #ffffff;">📁 Upload Your Position Tracking Data</h3>', unsafe_allow_html=True)
+    # Auto-load data from Google Sheets
+    st.markdown('<h3 style="color: #ffffff;">📊 Live Data from Google Sheets</h3>', unsafe_allow_html=True)
     
-    # Add helpful info about expected format
-    with st.expander("💡 Expected File Format", expanded=False):
-        st.markdown("""
-        **Expected Excel file structure:**
-        - Multiple sheets (one per keyword)
-        - Each sheet should have columns like: `Date/Time`, `Keyword`, `Recharge Position`, `AI Overview`, etc.
-        - Date/Time formats supported: `7/30/2025, 10:19:18 AM`, `7/30/2025 10:19:18 AM`, `2025-07-30 10:19:18`
-        """)
-    
-    uploaded_file = st.file_uploader(
-        "Choose your Position tracking Excel file",
-        type=['xlsx', 'xls'],
-        help="Upload your Position tracking.xlsx file containing keyword ranking data"
-    )
-    
-    if uploaded_file is not None:
-        # Load data from uploaded Excel file
-        with st.spinner('🔄 Loading data from Excel file...'):
-            df = load_data_from_excel(uploaded_file)
-    else:
-        # Use sample data
-        st.markdown('<p style="color: #a0a9c0;">💡 Upload your Excel file above, or use the sample data below</p>', unsafe_allow_html=True)
-        df = get_sample_data()
+    with st.spinner('🔄 Loading data from Google Sheets...'):
+        df = load_data_from_google_sheets()
     
     if df.empty:
-        st.markdown('<div class="stError">⚠️ No data found. Please upload your Excel file.</div>', unsafe_allow_html=True)
+        st.error("⚠️ No data could be loaded from Google Sheets. Please check the sheet permissions.")
+        st.stop()
         return
+    
+    # Show data loaded successfully
+    st.success(f"✅ Successfully loaded {len(df)} rows from Google Sheets")
+    
+    # Show sample of loaded data for debugging
+    with st.expander("🔍 Sample of loaded data", expanded=False):
+        st.dataframe(df.head(5))
+        st.markdown(f"**Columns:** {list(df.columns)}")
     
     # Process data
     df_processed = df.copy()
