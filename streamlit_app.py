@@ -16,7 +16,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Clean, minimal CSS styling
+# Dark theme CSS styling
 st.markdown("""
 <style>
     /* Hide Streamlit elements */
@@ -24,10 +24,10 @@ st.markdown("""
     footer {visibility: hidden;}
     header {visibility: hidden;}
     
-    /* Main app styling */
+    /* Dark theme styling */
     .stApp {
-        background: #fafafa;
-        color: #333333;
+        background: #0f172a;
+        color: #f8fafc;
     }
     
     .main .block-container {
@@ -38,55 +38,56 @@ st.markdown("""
     
     /* Header styling */
     .dashboard-header {
-        background: #ffffff;
-        border: 1px solid #e5e7eb;
+        background: #1e293b;
+        border: 1px solid #334155;
         border-radius: 12px;
         padding: 2rem;
         margin-bottom: 2rem;
         text-align: center;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
     }
     
     .dashboard-header h1 {
         font-size: 2.5rem;
         font-weight: 700;
         margin: 0;
-        color: #1f2937;
+        color: #f8fafc;
     }
     
     .dashboard-header p {
         font-size: 1.1rem;
         margin: 0.5rem 0 0 0;
-        color: #6b7280;
+        color: #cbd5e1;
     }
     
     /* Card styling */
     .metric-card {
-        background: #ffffff;
-        border: 1px solid #e5e7eb;
+        background: #1e293b;
+        border: 1px solid #334155;
         border-radius: 12px;
         padding: 1.5rem;
         margin-bottom: 1rem;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
         transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
     
     .metric-card:hover {
         transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+        border-color: #475569;
     }
     
     .metric-number {
         font-size: 2.5rem;
         font-weight: 700;
         margin: 0;
-        color: #1f2937;
+        color: #f8fafc;
     }
     
     .metric-label {
         font-size: 1rem;
         margin: 0.5rem 0 0 0;
-        color: #6b7280;
+        color: #cbd5e1;
         font-weight: 500;
     }
     
@@ -96,34 +97,42 @@ st.markdown("""
         font-weight: 600;
     }
     
-    .positive { color: #059669; }
-    .negative { color: #dc2626; }
-    .neutral { color: #d97706; }
+    .positive { color: #22c55e; }
+    .negative { color: #ef4444; }
+    .neutral { color: #f59e0b; }
     
     /* Section styling */
     .section-title {
-        background: #ffffff;
-        border: 1px solid #e5e7eb;
+        background: #1e293b;
+        border: 1px solid #334155;
         border-radius: 8px;
         padding: 1rem 1.5rem;
         margin: 2rem 0 1rem 0;
-        color: #1f2937;
+        color: #f8fafc;
         font-size: 1.3rem;
         font-weight: 600;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     }
     
     /* Sidebar styling */
     .css-1d391kg {
-        background: #ffffff;
-        border-right: 1px solid #e5e7eb;
+        background: #1e293b !important;
+        border-right: 1px solid #334155;
+    }
+    
+    .css-1d391kg .stMarkdown {
+        color: #f8fafc !important;
+    }
+    
+    .css-1d391kg .stRadio > label {
+        color: #f8fafc !important;
     }
     
     /* Button styling */
     .stButton > button {
-        background: #f3f4f6;
-        color: #374151;
-        border: 1px solid #d1d5db;
+        background: #374151;
+        color: #f8fafc;
+        border: 1px solid #4b5563;
         border-radius: 8px;
         padding: 0.5rem 1.5rem;
         font-weight: 500;
@@ -131,34 +140,28 @@ st.markdown("""
     }
     
     .stButton > button:hover {
-        background: #e5e7eb;
-        border-color: #9ca3af;
+        background: #4b5563;
+        border-color: #6b7280;
     }
     
     /* Chart container */
     .chart-container {
-        background: #ffffff;
-        border: 1px solid #e5e7eb;
+        background: #1e293b;
+        border: 1px solid #334155;
         border-radius: 12px;
         padding: 1.5rem;
         margin-bottom: 1rem;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
     }
     
     /* SERP Result Styling */
-    .serp-container {
-        display: flex;
-        gap: 2rem;
-        margin: 1rem 0;
-    }
-    
     .serp-column {
-        flex: 1;
-        background: #ffffff;
-        border: 1px solid #e5e7eb;
+        background: #1e293b;
+        border: 1px solid #334155;
         border-radius: 12px;
         padding: 1.5rem;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+        margin-bottom: 1rem;
     }
     
     .serp-header {
@@ -167,8 +170,8 @@ st.markdown("""
         font-weight: 600;
         margin-bottom: 1.5rem;
         padding-bottom: 0.5rem;
-        border-bottom: 2px solid #e5e7eb;
-        color: #1f2937;
+        border-bottom: 2px solid #334155;
+        color: #f8fafc;
     }
     
     .serp-result {
@@ -176,35 +179,35 @@ st.markdown("""
         align-items: flex-start;
         margin-bottom: 1rem;
         padding: 1rem;
-        background: #f9fafb;
+        background: #0f172a;
         border-radius: 8px;
-        border-left: 4px solid #9ca3af;
+        border-left: 4px solid #64748b;
         transition: all 0.2s ease;
     }
     
     .serp-result:hover {
-        background: #f3f4f6;
+        background: #1e293b;
         transform: translateX(3px);
     }
     
     .serp-result.recharge {
-        border-left-color: #d97706;
-        background: #fef3c7;
+        border-left-color: #f59e0b;
+        background: rgba(245, 158, 11, 0.1);
     }
     
     .serp-result.improved {
-        border-left-color: #059669;
-        background: #d1fae5;
+        border-left-color: #22c55e;
+        background: rgba(34, 197, 94, 0.1);
     }
     
     .serp-result.declined {
-        border-left-color: #dc2626;
-        background: #fee2e2;
+        border-left-color: #ef4444;
+        background: rgba(239, 68, 68, 0.1);
     }
     
     .serp-result.new {
-        border-left-color: #2563eb;
-        background: #dbeafe;
+        border-left-color: #3b82f6;
+        background: rgba(59, 130, 246, 0.1);
     }
     
     .position-number {
@@ -218,7 +221,7 @@ st.markdown("""
         margin-right: 1rem;
         font-size: 14px;
         color: white;
-        background: #6b7280;
+        background: #64748b;
     }
     
     .result-content {
@@ -228,14 +231,14 @@ st.markdown("""
     .result-title {
         font-weight: 600;
         margin-bottom: 0.3rem;
-        color: #1f2937;
+        color: #f8fafc;
         font-size: 0.95rem;
         line-height: 1.3;
     }
     
     .result-url {
         font-size: 0.8rem;
-        color: #6b7280;
+        color: #94a3b8;
         word-break: break-all;
         margin-bottom: 0.3rem;
     }
@@ -247,43 +250,66 @@ st.markdown("""
         font-size: 0.7rem;
         font-weight: bold;
         margin-top: 0.3rem;
+        margin-right: 0.3rem;
     }
     
     .badge-recharge {
-        background: #d97706;
+        background: #f59e0b;
         color: white;
     }
     
     .badge-improved {
-        background: #059669;
+        background: #22c55e;
         color: white;
     }
     
     .badge-declined {
-        background: #dc2626;
+        background: #ef4444;
         color: white;
     }
     
     .badge-new {
-        background: #2563eb;
+        background: #3b82f6;
         color: white;
     }
     
-    .badge-lost {
-        background: #d97706;
-        color: white;
-    }
-    
-    /* Streamlit specific overrides */
+    /* Streamlit specific overrides for dark theme */
     .stSelectbox > div > div > div {
-        background-color: #ffffff;
-        border-color: #d1d5db;
+        background-color: #374151 !important;
+        border-color: #4b5563 !important;
+        color: #f8fafc !important;
+    }
+    
+    .stSelectbox > div > div > div > div {
+        color: #f8fafc !important;
     }
     
     .stTextArea > div > div > textarea {
-        background-color: #ffffff;
-        border-color: #d1d5db;
-        color: #374151;
+        background-color: #374151 !important;
+        border-color: #4b5563 !important;
+        color: #f8fafc !important;
+    }
+    
+    .stDataFrame {
+        background-color: #1e293b !important;
+    }
+    
+    .stDataFrame [data-testid="stDataFrame"] {
+        background-color: #1e293b !important;
+    }
+    
+    /* Radio button styling */
+    .stRadio > div {
+        background-color: transparent !important;
+    }
+    
+    .stRadio > div > label {
+        color: #f8fafc !important;
+    }
+    
+    .stRadio > div > label > div > div {
+        background-color: #374151 !important;
+        border-color: #4b5563 !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -308,17 +334,17 @@ def get_country_flag(location_code):
 def get_position_status(position):
     """Get position status and color"""
     if pd.isna(position) or position == '' or str(position).lower() in ['not ranking', 'lost']:
-        return 'Not Ranking', '#dc2626'
+        return 'Not Ranking', '#ef4444'
     try:
         pos = int(position)
         if pos <= 3:
-            return f'#{pos}', '#059669'
+            return f'#{pos}', '#22c55e'
         elif pos <= 10:
-            return f'#{pos}', '#d97706'
+            return f'#{pos}', '#f59e0b'
         else:
-            return f'#{pos}', '#dc2626'
+            return f'#{pos}', '#ef4444'
     except:
-        return str(position), '#6b7280'
+        return str(position), '#64748b'
 
 def has_ai_overview(ai_content):
     """Check if AI Overview content exists"""
@@ -549,9 +575,9 @@ def show_executive_dashboard(df_processed):
             names=list(position_data.keys()),
             title="Search Position Distribution",
             color_discrete_map={
-                'Top 3': '#059669',
-                'Positions 4-10': '#d97706', 
-                'Not Ranking': '#dc2626'
+                'Top 3': '#22c55e',
+                'Positions 4-10': '#f59e0b', 
+                'Not Ranking': '#ef4444'
             }
         )
         
@@ -559,9 +585,9 @@ def show_executive_dashboard(df_processed):
             height=350,
             paper_bgcolor='rgba(0,0,0,0)',
             plot_bgcolor='rgba(0,0,0,0)',
-            font_color='#374151',
+            font_color='#f8fafc',
             title_font_size=16,
-            title_font_color='#1f2937'
+            title_font_color='#f8fafc'
         )
         
         st.plotly_chart(fig_pie, use_container_width=True)
@@ -585,7 +611,7 @@ def show_executive_dashboard(df_processed):
                     y='Avg_Position',
                     title="Average Position by Market",
                     color='Avg_Position',
-                    color_continuous_scale=['#059669', '#d97706', '#dc2626']
+                    color_continuous_scale=['#22c55e', '#f59e0b', '#ef4444']
                 )
                 
                 fig_bar.update_layout(
@@ -594,9 +620,9 @@ def show_executive_dashboard(df_processed):
                     yaxis=dict(autorange="reversed"),
                     paper_bgcolor='rgba(0,0,0,0)',
                     plot_bgcolor='rgba(0,0,0,0)',
-                    font_color='#374151',
+                    font_color='#f8fafc',
                     title_font_size=16,
-                    title_font_color='#1f2937'
+                    title_font_color='#f8fafc'
                 )
                 
                 st.plotly_chart(fig_bar, use_container_width=True)
@@ -722,19 +748,19 @@ def show_keyword_analysis(df_processed):
                 xaxis_title="Date",
                 paper_bgcolor='rgba(0,0,0,0)',
                 plot_bgcolor='rgba(0,0,0,0)',
-                font_color='#374151',
-                title_font_color='#1f2937'
+                font_color='#f8fafc',
+                title_font_color='#f8fafc'
             )
             
             # Add reference lines
-            fig.add_hline(y=3.5, line_dash="dash", line_color="rgba(5, 150, 105, 0.7)", 
+            fig.add_hline(y=3.5, line_dash="dash", line_color="rgba(34, 197, 94, 0.7)", 
                          annotation_text="Top 3 Threshold")
-            fig.add_hline(y=10.5, line_dash="dash", line_color="rgba(217, 119, 6, 0.7)", 
+            fig.add_hline(y=10.5, line_dash="dash", line_color="rgba(245, 158, 11, 0.7)", 
                          annotation_text="Page 1 Threshold")
             
             fig.update_traces(
-                line=dict(width=3, color='#059669'),
-                marker=dict(size=8, color='#059669')
+                line=dict(width=3, color='#22c55e'),
+                marker=dict(size=8, color='#22c55e')
             )
             
             st.plotly_chart(fig, use_container_width=True)
@@ -823,12 +849,18 @@ def show_serp_comparison(df_processed):
         results = {}
         for i in range(1, 6):  # Top 5 positions only
             col_name = f'Position {i}'
-            if col_name in data_row and pd.notna(data_row[col_name]) and data_row[col_name]:
-                url = str(data_row[col_name])
+            if col_name in data_row and pd.notna(data_row[col_name]) and str(data_row[col_name]).strip():
+                url = str(data_row[col_name]).strip()
+                # Skip if it's just HTML tags or empty content
+                if url.startswith('<') or url in ['</div>', '<div>', '']:
+                    continue
+                    
                 try:
                     domain = urlparse(url).netloc.replace('www.', '')
                     # Extract title from URL or use domain
                     title = domain.split('.')[0].title() if domain else url[:50]
+                    if not title:
+                        title = f"Result {i}"
                 except:
                     domain = url[:50] + "..." if len(url) > 50 else url
                     title = domain
@@ -893,32 +925,32 @@ def show_serp_comparison(df_processed):
     
     with col1:
         st.markdown(f"""
-        <div class="metric-card" style="border-left: 4px solid #059669;">
-            <div class="metric-number" style="color: #059669;">{improved}</div>
+        <div class="metric-card" style="border-left: 4px solid #22c55e;">
+            <div class="metric-number" style="color: #22c55e;">{improved}</div>
             <div class="metric-label">📈 Improved</div>
         </div>
         """, unsafe_allow_html=True)
     
     with col2:
         st.markdown(f"""
-        <div class="metric-card" style="border-left: 4px solid #dc2626;">
-            <div class="metric-number" style="color: #dc2626;">{declined}</div>
+        <div class="metric-card" style="border-left: 4px solid #ef4444;">
+            <div class="metric-number" style="color: #ef4444;">{declined}</div>
             <div class="metric-label">📉 Declined</div>
         </div>
         """, unsafe_allow_html=True)
     
     with col3:
         st.markdown(f"""
-        <div class="metric-card" style="border-left: 4px solid #2563eb;">
-            <div class="metric-number" style="color: #2563eb;">{new_entries}</div>
+        <div class="metric-card" style="border-left: 4px solid #3b82f6;">
+            <div class="metric-number" style="color: #3b82f6;">{new_entries}</div>
             <div class="metric-label">🆕 New</div>
         </div>
         """, unsafe_allow_html=True)
     
     with col4:
         st.markdown(f"""
-        <div class="metric-card" style="border-left: 4px solid #d97706;">
-            <div class="metric-number" style="color: #d97706;">{lost_entries}</div>
+        <div class="metric-card" style="border-left: 4px solid #f59e0b;">
+            <div class="metric-number" style="color: #f59e0b;">{lost_entries}</div>
             <div class="metric-label">❌ Lost</div>
         </div>
         """, unsafe_allow_html=True)
@@ -941,16 +973,16 @@ def show_serp_comparison(df_processed):
             change = recharge_pos1 - recharge_pos2
             if change > 0:
                 change_text = f"📈 +{change}"
-                change_color = "#059669"
+                change_color = "#22c55e"
             elif change < 0:
                 change_text = f"📉 {abs(change)}"
-                change_color = "#dc2626"
+                change_color = "#ef4444"
             else:
                 change_text = "➡️ No Change"
-                change_color = "#d97706"
+                change_color = "#f59e0b"
         else:
             change_text = "❓ Unknown"
-            change_color = "#6b7280"
+            change_color = "#64748b"
         
         st.markdown(f"""
         <div class="metric-card" style="border-left: 4px solid {change_color};">
@@ -962,7 +994,7 @@ def show_serp_comparison(df_processed):
     # Side-by-side SERP comparison (Top 5 only)
     st.markdown('<div class="section-title">🔍 Top 5 SERP Results Comparison</div>', unsafe_allow_html=True)
     
-    # Create side-by-side comparison
+    # Create side-by-side comparison using columns
     col_left, col_right = st.columns(2)
     
     with col_left:
@@ -976,7 +1008,7 @@ def show_serp_comparison(df_processed):
             if position in serp1:
                 result = serp1[position]
                 result_class = "recharge" if result['is_recharge'] else ""
-                position_color = "#d97706" if result['is_recharge'] else "#6b7280"
+                position_color = "#f59e0b" if result['is_recharge'] else "#64748b"
                 
                 st.markdown(f"""
                 <div class="serp-result {result_class}">
@@ -986,14 +1018,14 @@ def show_serp_comparison(df_processed):
                     <div class="result-content">
                         <div class="result-title">{result['title']}</div>
                         <div class="result-url">{result['url'][:60]}{'...' if len(result['url']) > 60 else ''}</div>
-                        {f'<span class="result-badge badge-recharge">🔋 Recharge.com</span>' if result['is_recharge'] else ''}
+                        {'<span class="result-badge badge-recharge">🔋 Recharge.com</span>' if result['is_recharge'] else ''}
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
             else:
                 st.markdown(f"""
                 <div class="serp-result" style="opacity: 0.3;">
-                    <div class="position-number" style="background: #9ca3af;">
+                    <div class="position-number" style="background: #64748b;">
                         {position}
                     </div>
                     <div class="result-content">
@@ -1023,19 +1055,19 @@ def show_serp_comparison(df_processed):
                 if pos1 is None:
                     change_class = "new"
                     change_text = "🆕 NEW"
-                    change_color = "#2563eb"
+                    change_color = "#3b82f6"
                 elif pos1 and pos2 and pos1 > pos2:
                     change_class = "improved"
                     change_text = f"📈 +{pos1 - pos2}"
-                    change_color = "#059669"
+                    change_color = "#22c55e"
                 elif pos1 and pos2 and pos1 < pos2:
                     change_class = "declined"
                     change_text = f"📉 -{pos2 - pos1}"
-                    change_color = "#dc2626"
+                    change_color = "#ef4444"
                 else:
                     change_class = "recharge" if result['is_recharge'] else ""
                     change_text = ""
-                    change_color = "#d97706" if result['is_recharge'] else "#6b7280"
+                    change_color = "#f59e0b" if result['is_recharge'] else "#64748b"
                 
                 st.markdown(f"""
                 <div class="serp-result {change_class}">
@@ -1045,7 +1077,7 @@ def show_serp_comparison(df_processed):
                     <div class="result-content">
                         <div class="result-title">{result['title']}</div>
                         <div class="result-url">{result['url'][:60]}{'...' if len(result['url']) > 60 else ''}</div>
-                        {f'<span class="result-badge badge-recharge">🔋 Recharge.com</span>' if result['is_recharge'] else ''}
+                        {'<span class="result-badge badge-recharge">🔋 Recharge.com</span>' if result['is_recharge'] else ''}
                         {f'<span class="result-badge badge-{change_class}">{change_text}</span>' if change_text else ''}
                     </div>
                 </div>
@@ -1053,7 +1085,7 @@ def show_serp_comparison(df_processed):
             else:
                 st.markdown(f"""
                 <div class="serp-result" style="opacity: 0.3;">
-                    <div class="position-number" style="background: #9ca3af;">
+                    <div class="position-number" style="background: #64748b;">
                         {position}
                     </div>
                     <div class="result-content">
@@ -1078,7 +1110,7 @@ def show_serp_comparison(df_processed):
             st.markdown("**🤖 AI Overview Present**")
             st.text_area(
                 "AI Overview Content",
-                ai_content1,
+                str(ai_content1),
                 height=200,
                 key="ai_content_1",
                 label_visibility="collapsed"
@@ -1098,7 +1130,7 @@ def show_serp_comparison(df_processed):
             st.markdown("**🤖 AI Overview Present**")
             st.text_area(
                 "AI Overview Content",
-                ai_content2,
+                str(ai_content2),
                 height=200,
                 key="ai_content_2",
                 label_visibility="collapsed"
