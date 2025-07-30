@@ -5,6 +5,8 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import datetime
 import numpy as np
+import re
+from urllib.parse import urlparse
 
 # Page configuration
 st.set_page_config(
@@ -339,7 +341,6 @@ def extract_aio_links(aio_links_content):
     links = []
     
     # Look for numbered links (1. https://...)
-    import re
     # Pattern for numbered links like "1. https://... - Title"
     numbered_pattern = r'\d+\.\s+(https?://[^\s]+)'
     found_urls = re.findall(numbered_pattern, content)
@@ -412,7 +413,7 @@ def show_dashboard_overview(latest_data, filtered_data):
                 delta=f"{(ai_count/total_keywords*100):.1f}% coverage" if total_keywords > 0 else None
             )
     
-    # Keywords Overview Table
+    # Keywords Overview Table with AI Overview Content
     st.markdown('<h2 class="section-header">🔍 Keywords Overview</h2>', unsafe_allow_html=True)
     
     if not filtered_data.empty:
@@ -445,6 +446,53 @@ def show_dashboard_overview(latest_data, filtered_data):
         if available_cols:
             table_data = display_data[available_cols].rename(columns=column_mapping)
             st.dataframe(table_data, use_container_width=True, hide_index=True)
+        
+        # AI Overview Content Display
+        if 'AI Overview' in display_data.columns:
+            ai_keywords = display_data[display_data['AI Overview'].apply(has_ai_overview)]
+            
+            if not ai_keywords.empty:
+                st.markdown('<h3 class="section-header">🤖 AI Overview Content</h3>', unsafe_allow_html=True)
+                
+                # Show AI Overview content for keywords that have it
+                for idx, row in ai_keywords.iterrows():
+                    keyword = row.get('Keyword', 'Unknown')
+                    position = row.get('Recharge Position', 'Unknown')
+                    ai_content = row.get('AI Overview', '')
+                    
+                    if has_ai_overview(ai_content):
+                        with st.expander(f"🔍 {keyword} (Position: {position})", expanded=False):
+                            col1, col2 = st.columns([3, 1])
+                            
+                            with col1:
+                                st.markdown("**🤖 AI Overview Content:**")
+                                st.text_area(
+                                    "AI Overview",
+                                    ai_content,
+                                    height=150,
+                                    key=f"ai_overview_{idx}",
+                                    label_visibility="collapsed"
+                                )
+                            
+                            with col2:
+                                st.markdown("**📊 Details:**")
+                                st.write(f"**Keyword:** {keyword}")
+                                st.write(f"**Position:** {position}")
+                                st.write(f"**Market:** {row.get('Market', 'Unknown')}")
+                                
+                                # Show AI Overview links if available
+                                if 'AIO Links' in row:
+                                    links = extract_aio_links(row['AIO Links'])
+                                    if links:
+                                        st.markdown("**🔗 Links:**")
+                                        for i, link in enumerate(links[:3], 1):
+                                            try:
+                                                domain = urlparse(link).netloc.replace('www.', '')
+                                            except:
+                                                domain = link[:20] + "..."
+                                            st.markdown(f"{i}. [{domain}]({link})")
+                                    else:
+                                        st.write("**🔗 Links:** None found")
     
     # Charts
     st.markdown('<h2 class="section-header">📈 Analytics Overview</h2>', unsafe_allow_html=True)
@@ -741,7 +789,6 @@ def show_ai_overview_tracking(df_processed):
                         for i, link in enumerate(links, 1):
                             # Extract domain for display
                             try:
-                                from urllib.parse import urlparse
                                 domain = urlparse(link).netloc.replace('www.', '')
                             except:
                                 domain = link[:30] + "..." if len(link) > 30 else link
@@ -758,7 +805,6 @@ def show_ai_overview_tracking(df_processed):
                         url = str(row[col_name])
                         # Extract domain
                         try:
-                            from urllib.parse import urlparse
                             domain = urlparse(url).netloc.replace('www.', '')
                         except:
                             domain = url[:50] + "..." if len(url) > 50 else url
@@ -789,7 +835,6 @@ def show_ai_overview_tracking(df_processed):
             links = extract_aio_links(row.get('AIO Links', ''))
             for link in links:
                 try:
-                    from urllib.parse import urlparse
                     domain = urlparse(link).netloc.replace('www.', '')
                 except:
                     domain = link[:50]
@@ -909,7 +954,6 @@ def show_date_comparison(df_processed):
                     url = str(data_row[col])
                     # Extract domain from URL for display
                     try:
-                        from urllib.parse import urlparse
                         domain = urlparse(url).netloc
                         domain = domain.replace('www.', '') if domain.startswith('www.') else domain
                     except:
@@ -1353,8 +1397,6 @@ def main():
                 pass
             
             # Manual format matching for your specific format
-            import re
-            
             # Pattern: 7/30/2025, 10:19:18 AM
             pattern = r'(\d{1,2})/(\d{1,2})/(\d{4}),?\s+(\d{1,2}):(\d{2}):(\d{2})\s+(AM|PM)'
             match = re.match(pattern, date_str)
@@ -1475,13 +1517,6 @@ def main():
         
         if parsing_info["removed_rows"] > 0:
             st.sidebar.markdown(f'<p style="color: #f59e0b; font-size: 12px;">⚠️ Removed {parsing_info["removed_rows"]} rows with invalid dates</p>', unsafe_allow_html=True)
-        
-        if parsing_info["sample_dates"]:
-            st.sidebar.markdown(f'<p style="color: #a0a9c0; font-size: 12px;">Sample original: {parsing_info["sample_dates"][:2]}</p>', unsafe_allow_html=True)
-        
-        if parsing_info["sample_parsed"]:
-            sample_parsed_str = [dt.strftime('%m/%d/%Y %I:%M:%S %p') for dt in parsing_info["sample_parsed"][:2]]
-            st.sidebar.markdown(f'<p style="color: #10b981; font-size: 12px;">✅ Parsed to: {sample_parsed_str}</p>', unsafe_allow_html=True)
     
     # Page routing
     if page == "📊 Dashboard Overview":
