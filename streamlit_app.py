@@ -217,63 +217,122 @@ def load_data_from_google_sheets():
         with st.expander("🔍 Main Sheet Data", expanded=False):
             st.dataframe(main_df.head())
         
-        # Now we need to try different GIDs to get all the keyword tracking sheets
-        # Common GID patterns in Google Sheets
-        possible_gids = [
-            0,      # Main sheet
-            1000,   # Common starting point for additional sheets
-            1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010,
-            1011, 1012, 1013, 1014, 1015, 1016, 1017, 1018, 1019, 1020,
-            2000, 2001, 2002, 2003, 2004, 2005,  # Another common pattern
-            123456, 234567, 345678, 456789, 567890,  # Random GIDs
-        ]
-        
+        # Try many different GID patterns - Google Sheets assigns random GIDs
         all_keyword_data = []
         successful_sheets = 0
+        failed_attempts = 0
+        max_failures = 50  # Stop after 50 consecutive failures
         
-        # Try to load keyword tracking sheets
-        for gid in possible_gids[1:]:  # Skip 0 as it's the main sheet
+        # Much wider range of possible GIDs
+        possible_gids = []
+        
+        # Common patterns observed in Google Sheets
+        possible_gids.extend(range(1, 100))           # 1-99
+        possible_gids.extend(range(100, 1000, 10))    # 100, 110, 120, ... 990
+        possible_gids.extend(range(1000, 10000, 100)) # 1000, 1100, 1200, ... 9900
+        possible_gids.extend(range(10000, 100000, 1000)) # 10000, 11000, ... 99000
+        possible_gids.extend(range(100000, 1000000, 10000)) # 100000, 110000, ... 990000
+        possible_gids.extend(range(1000000, 10000000, 100000)) # 1000000, 1100000, ... 9900000
+        
+        # Add some completely random large numbers that are common
+        random_gids = [
+            123456789, 987654321, 111111111, 222222222, 333333333, 444444444,
+            555555555, 666666666, 777777777, 888888888, 999999999, 1234567890,
+            2147483647, 1073741824, 536870912, 268435456, 134217728, 67108864
+        ]
+        possible_gids.extend(random_gids)
+        
+        st.info(f"🔍 Scanning {len(possible_gids)} possible sheet GIDs...")
+        
+        # Progress bar for scanning
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        for i, gid in enumerate(possible_gids):
+            # Update progress
+            progress = (i + 1) / len(possible_gids)
+            progress_bar.progress(progress)
+            status_text.text(f"Scanning GID {gid}... ({i+1}/{len(possible_gids)}) - Found: {successful_sheets} sheets")
+            
             try:
                 keyword_csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
                 keyword_df = pd.read_csv(keyword_csv_url)
                 
                 # Check if this looks like a keyword tracking sheet
-                if not keyword_df.empty and 'Date/Time' in keyword_df.columns and 'Recharge Position' in keyword_df.columns:
+                if (not keyword_df.empty and 
+                    'Date/Time' in keyword_df.columns and 
+                    'Recharge Position' in keyword_df.columns and
+                    'Keyword' in keyword_df.columns):
+                    
                     # Add sheet identifier
                     keyword_df['Sheet_Name'] = f'keyword_sheet_{gid}'
+                    keyword_df['Sheet_GID'] = gid
                     all_keyword_data.append(keyword_df)
                     successful_sheets += 1
-                    st.success(f"✅ Loaded keyword sheet GID {gid} with {len(keyword_df)} rows")
+                    failed_attempts = 0  # Reset failure counter
                     
-                    # Show sample for first successful sheet
-                    if successful_sheets == 1:
-                        with st.expander(f"🔍 Sample Keyword Data (GID {gid})", expanded=False):
+                    st.success(f"✅ Found keyword sheet GID {gid} with {len(keyword_df)} rows - Keyword: {keyword_df['Keyword'].iloc[0] if not keyword_df.empty else 'Unknown'}")
+                    
+                    # Show sample for first few successful sheets
+                    if successful_sheets <= 3:
+                        with st.expander(f"🔍 Sample Data - Sheet GID {gid}", expanded=False):
                             st.dataframe(keyword_df.head(3))
-                            st.markdown(f"**Columns:** {list(keyword_df.columns)}")
                     
-                    # Limit to prevent too many requests
-                    if successful_sheets >= 15:  # Max 15 sheets to avoid hitting limits
+                    # If we found a good number of sheets, we can be less aggressive
+                    if successful_sheets >= 50:  # Reasonable limit to prevent timeouts
+                        st.info(f"🛑 Stopping scan after finding {successful_sheets} sheets to prevent timeout")
                         break
-                        
+                else:
+                    failed_attempts += 1
+                    
             except Exception as e:
-                # Silently continue - many GIDs won't exist
+                failed_attempts += 1
+                # Only show errors for the first few attempts
+                if i < 10:
+                    pass  # Silently ignore - most GIDs won't exist
                 continue
+            
+            # If we've had too many consecutive failures, try skipping ahead
+            if failed_attempts > max_failures:
+                # Skip ahead to next range
+                if i < 1000:
+                    continue
+                elif successful_sheets == 0:
+                    # If we haven't found anything yet, keep trying
+                    failed_attempts = 0
+                else:
+                    # We found some sheets, but having many failures now
+                    break
+        
+        # Clear progress indicators
+        progress_bar.empty()
+        status_text.empty()
         
         if all_keyword_data:
             # Combine all keyword tracking data
             combined_df = pd.concat(all_keyword_data, ignore_index=True)
             st.success(f"🎉 Successfully loaded {successful_sheets} keyword tracking sheets with {len(combined_df)} total records")
+            
+            # Show summary by keyword
+            if 'Keyword' in combined_df.columns:
+                keyword_counts = combined_df['Keyword'].value_counts()
+                st.info(f"📊 Found data for {len(keyword_counts)} unique keywords: {', '.join(keyword_counts.head(5).index.tolist())}")
+            
             return combined_df
         else:
-            st.error("❌ No keyword tracking sheets found. Trying single sheet approach...")
+            st.error("❌ No keyword tracking sheets found after scanning all possible GIDs")
+            st.markdown("""
+            **Possible issues:**
+            1. **Sheet permissions**: Make sure the sheet is "Anyone with link can view"
+            2. **Sheet structure**: Each keyword sheet should have columns: Date/Time, Keyword, Recharge Position
+            3. **Different GIDs**: The sheets might have very unique GID numbers not in our scan range
             
-            # Fallback: try the main sheet as tracking data
-            if 'Date/Time' in main_df.columns:
-                main_df['Sheet_Name'] = 'main_sheet'
-                return main_df
-            else:
-                st.error("❌ Main sheet doesn't contain tracking data either")
-                return pd.DataFrame()
+            **Manual solution**: You can find the exact GID of each sheet by:
+            1. Go to each sheet tab in Google Sheets
+            2. Look at the URL: `https://docs.google.com/spreadsheets/d/.../edit#gid=XXXXXXXXX`
+            3. The number after `gid=` is the GID for that sheet
+            """)
+            return pd.DataFrame()
         
     except Exception as e:
         st.error(f"❌ Error reading Google Sheets: {str(e)}")
