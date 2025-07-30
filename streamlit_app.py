@@ -8,6 +8,12 @@ from google.oauth2.service_account import Credentials
 import datetime
 import numpy as np
 
+# Try to import openpyxl for Excel file reading
+try:
+    import openpyxl
+except ImportError:
+    st.error("⚠️ openpyxl not installed. Please install it to read Excel files: pip install openpyxl")
+
 # Page configuration
 st.set_page_config(
     page_title="Recharge.com Ranking Dashboard",
@@ -26,6 +32,12 @@ st.markdown("""
     .main > div {
         padding-top: 1rem;
         font-family: 'Inter', sans-serif;
+        color: #1f2937;
+    }
+    
+    /* Ensure text is readable on all backgrounds */
+    .stMarkdown, .stText, p, span, div {
+        color: #1f2937 !important;
     }
     
     /* Sidebar Styling */
@@ -51,6 +63,11 @@ st.markdown("""
     .css-1d391kg .stDateInput label {
         color: white !important;
         font-weight: 500;
+    }
+    
+    /* Debug text styling */
+    .css-1d391kg .stMarkdown {
+        color: white !important;
     }
     
     /* Main Header */
@@ -115,10 +132,29 @@ st.markdown("""
         font-family: 'Inter', sans-serif;
         font-weight: 600;
         font-size: 1.8rem;
-        color: #1f2937;
+        color: #1f2937 !important;
         margin: 2rem 0 1rem 0;
         padding-bottom: 0.5rem;
         border-bottom: 3px solid #667eea;
+    }
+    
+    /* Ensure all text is readable */
+    .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4, .stMarkdown h5, .stMarkdown h6 {
+        color: #1f2937 !important;
+    }
+    
+    .stMarkdown p, .stMarkdown div, .stMarkdown span {
+        color: #374151 !important;
+    }
+    
+    /* Main content area text */
+    .main .stMarkdown {
+        color: #1f2937 !important;
+    }
+    
+    /* Table headers and content */
+    .stDataFrame {
+        color: #1f2937 !important;
     }
     
     /* Data Tables */
@@ -222,6 +258,60 @@ st.markdown("""
 
 # Data loading functions
 @st.cache_data(ttl=300)
+def load_data_from_excel(uploaded_file):
+    """Load data from uploaded Excel file"""
+    try:
+        # Read the Excel file
+        xl_file = pd.ExcelFile(uploaded_file)
+        
+        st.sidebar.write(f"Debug - Found {len(xl_file.sheet_names)} sheets")
+        st.sidebar.write(f"Sheet names: {xl_file.sheet_names}")
+        
+        # Filter out admin/main sheets and get keyword sheets
+        keyword_sheets = [sheet for sheet in xl_file.sheet_names 
+                         if sheet not in ['Main', 'ADMIN', '⚙️ ADMIN'] 
+                         and not sheet.startswith('Sheet')]
+        
+        st.sidebar.write(f"Debug - Processing {len(keyword_sheets)} keyword sheets")
+        
+        all_data = []
+        
+        for sheet_name in keyword_sheets:
+            try:
+                # Read each keyword sheet
+                df_sheet = pd.read_excel(uploaded_file, sheet_name=sheet_name)
+                
+                # Skip if empty or too few columns
+                if df_sheet.empty or len(df_sheet.columns) < 5:
+                    continue
+                
+                # Add sheet name for tracking
+                df_sheet['Sheet_Name'] = sheet_name
+                
+                # Check if this looks like a keyword tracking sheet
+                if 'Keyword' in df_sheet.columns or 'Date/Time' in df_sheet.columns:
+                    all_data.append(df_sheet)
+                    st.sidebar.write(f"✅ Loaded: {sheet_name} ({len(df_sheet)} rows)")
+                else:
+                    st.sidebar.write(f"⚠️ Skipped: {sheet_name} (no keyword data)")
+                    
+            except Exception as e:
+                st.sidebar.write(f"❌ Error loading {sheet_name}: {e}")
+                continue
+        
+        if all_data:
+            combined_df = pd.concat(all_data, ignore_index=True)
+            st.success(f"✅ Successfully loaded data from {len(all_data)} keyword sheets")
+            return combined_df
+        else:
+            st.warning("⚠️ No valid keyword sheets found in Excel file")
+            return get_enhanced_sample_data()
+            
+    except Exception as e:
+        st.error(f"Error reading Excel file: {e}")
+        return get_enhanced_sample_data()
+
+@st.cache_data(ttl=300)
 def load_data_from_sheets():
     """Load data from PUBLIC Google Sheets"""
     try:
@@ -296,13 +386,6 @@ def load_public_sheet_data(sheet_id):
         if all_data:
             combined_df = pd.concat(all_data, ignore_index=True)
             st.success(f"✅ Successfully loaded data from {successful_sheets} sheets")
-            
-            # Debug: show what columns we have
-            st.sidebar.write("Debug - Loaded columns:", combined_df.columns.tolist())
-            if 'Keyword' in combined_df.columns:
-                sample_keywords = combined_df['Keyword'].dropna().unique()[:5]
-                st.sidebar.write("Debug - Sample keywords:", list(sample_keywords))
-            
             return combined_df
         else:
             st.info("📊 Using sample data for demonstration")
@@ -429,10 +512,10 @@ def parse_sheet_info(sheet_name):
         return keyword, language, location
     elif len(parts) == 1:
         # Just keyword, like "tmobile prepaid refill number"
-        return parts[0], 'Unknown', 'Unknown'
+        return parts[0], 'en', 'us'  # Default to English/US
     else:
         # Fallback
-        return ' '.join(parts), 'Unknown', 'Unknown'
+        return ' '.join(parts[:-1]) if len(parts) > 1 else parts[0], 'en', 'us'
 
 def get_country_flag(location_code):
     """Get country flag emoji from location code"""
@@ -718,35 +801,47 @@ def main():
     </div>
     """, unsafe_allow_html=True)
     
-    # Load data
-    with st.spinner('🔄 Loading data from Google Sheets...'):
-        df = load_data_from_sheets()
+    # File upload section
+    st.markdown("### 📁 Upload Your Position Tracking Data")
+    uploaded_file = st.file_uploader(
+        "Choose your Position tracking Excel file",
+        type=['xlsx', 'xls'],
+        help="Upload your Position tracking.xlsx file containing keyword ranking data"
+    )
+    
+    if uploaded_file is not None:
+        # Load data from uploaded Excel file
+        with st.spinner('🔄 Loading data from Excel file...'):
+            df = load_data_from_excel(uploaded_file)
+    else:
+        # Fallback: try Google Sheets or use sample data
+        st.info("💡 Upload your Excel file above, or the app will try to load from Google Sheets")
+        with st.spinner('🔄 Loading data from Google Sheets...'):
+            df = load_data_from_sheets()
     
     if df.empty:
-        st.warning("⚠️ No data found. Please check your Google Sheets connection.")
+        st.warning("⚠️ No data found. Please upload your Excel file or check your Google Sheets connection.")
         return
     
     # Process data
     df_processed = df.copy()
     
-    # Debug: Show what we loaded
-    st.sidebar.write("Debug - Raw data shape:", df.shape)
-    st.sidebar.write("Debug - Raw columns:", df.columns.tolist())
+    # Debug: Show basic info
+    st.sidebar.write(f"📊 Loaded {df.shape[0]} rows, {df.shape[1]} columns")
     
     # Use actual keyword from data, not sheet name parsing
     if 'Keyword' in df_processed.columns:
         df_processed['Keyword_Clean'] = df_processed['Keyword']
-        st.sidebar.write("Debug - Using 'Keyword' column for Keyword_Clean")
-        sample_keywords = df_processed['Keyword'].dropna().unique()[:3]
-        st.sidebar.write("Debug - Sample keywords from data:", list(sample_keywords))
+        unique_keywords = df_processed['Keyword'].dropna().unique()
+        st.sidebar.write(f"🔍 Found {len(unique_keywords)} unique keywords")
     else:
         # Fallback to sheet name parsing if no Keyword column
-        st.sidebar.write("Debug - No 'Keyword' column found, parsing from sheet names")
+        st.sidebar.write("⚠️ No 'Keyword' column found, parsing from sheet names")
         df_processed[['Keyword_Clean', 'Language', 'Location']] = df_processed['Sheet_Name'].apply(
             lambda x: pd.Series(parse_sheet_info(x))
         )
-        sample_keywords = df_processed['Keyword_Clean'].dropna().unique()[:3]
-        st.sidebar.write("Debug - Sample keywords from sheet names:", list(sample_keywords))
+        unique_keywords = df_processed['Keyword_Clean'].dropna().unique()
+        st.sidebar.write(f"🔍 Parsed {len(unique_keywords)} keywords from sheet names")
     
     # Extract language and location from sheet names
     if 'Sheet_Name' in df_processed.columns:
@@ -754,8 +849,8 @@ def main():
             lambda x: pd.Series(parse_sheet_info(x))
         )
     else:
-        df_processed['Language'] = 'Unknown'
-        df_processed['Location'] = 'Unknown'
+        df_processed['Language'] = 'en'
+        df_processed['Location'] = 'us'
     
     df_processed['Market'] = df_processed['Location'].apply(get_country_flag)
     
@@ -1044,22 +1139,15 @@ def show_keyword_tracking(df_processed, filtered_data):
     """Individual Keyword Tracking Page"""
     st.markdown('<h2 class="section-header">📈 Individual Keyword Performance</h2>', unsafe_allow_html=True)
     
-    # Debug info
+    # Keyword selector
     if 'Keyword_Clean' in df_processed.columns:
         available_keywords = df_processed['Keyword_Clean'].dropna().unique()
-        st.sidebar.write(f"Debug: Found {len(available_keywords)} keywords")
-        if len(available_keywords) > 0:
-            st.sidebar.write(f"Sample keywords: {list(available_keywords[:3])}")
     else:
         st.error("❌ No 'Keyword_Clean' column found in data")
-        st.write("Available columns:", df_processed.columns.tolist())
         return
     
     if len(available_keywords) == 0:
-        st.warning("No keywords found in the data.")
-        # Show some debug info
-        st.write("Data sample:")
-        st.write(df_processed.head())
+        st.warning("⚠️ No keywords found in the data.")
         return
     
     selected_keyword = st.selectbox(
