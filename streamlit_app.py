@@ -218,10 +218,11 @@ def load_data_from_excel(uploaded_file):
                 
                 df_sheet['Sheet_Name'] = sheet_name
                 
-                if 'Keyword' in df_sheet.columns:
-                    all_data.append(df_sheet)
+                # Don't filter by Keyword column existence, just add all sheets
+                all_data.append(df_sheet)
                     
             except Exception as e:
+                st.warning(f"Error reading sheet {sheet_name}: {e}")
                 continue
         
         if all_data:
@@ -239,12 +240,20 @@ def get_sample_data():
     dates = pd.date_range('2025-07-25', periods=6, freq='D')
     
     keywords_data = [
+        ('t-mobile prepaid refill number', 'en', 'us', '🇺🇸 United States'),
         ('recarga digi', 'es', 'es', '🇪🇸 Spain'),
+        ('recarga digi online', 'es', 'es', '🇪🇸 Spain'),
         ('ricarica iliad', 'it', 'it', '🇮🇹 Italy'),
+        ('ricarica iliad online', 'it', 'it', '🇮🇹 Italy'),
         ('recharge transcash', 'fr', 'fr', '🇫🇷 France'),
+        ('transcash en ligne', 'fr', 'fr', '🇫🇷 France'),
         ('buy robux', 'en', 'ph', '🇵🇭 Philippines'),
+        ('robux top up', 'en', 'ph', '🇵🇭 Philippines'),
+        ('flexy mobilis', 'fr', 'dz', '🇩🇿 Algeria'),
+        ('flexy mobilis en ligne', 'fr', 'dz', '🇩🇿 Algeria'),
+        ('neosurf', 'en', 'au', '🇦🇺 Australia'),
         ('neosurf voucher', 'en', 'au', '🇦🇺 Australia'),
-        ('t-mobile prepaid refill', 'en', 'us', '🇺🇸 United States')
+        ('buy neosurf online', 'en', 'au', '🇦🇺 Australia')
     ]
     
     sample_data = []
@@ -263,6 +272,8 @@ def get_sample_data():
                 'Recharge Position': position,
                 'Position Change': change,
                 'AI Overview': 'Yes' if ai_present else 'No',
+                'AIO Links': f"Sample AI Overview content for {keyword}" if ai_present else None,
+                'Full Results Data': f"Sample SERP data for {keyword}",
                 'Sheet_Name': f'{keyword.replace(" ", "_")}_{lang}_{loc}',
                 'Market': market
             })
@@ -313,38 +324,26 @@ def get_position_status(position):
     except:
         return str(position), '#6b7280'
 
-def calculate_position_change(pos1, pos2):
-    """Calculate position change between two positions"""
-    if str(pos1).lower() in ['not ranking', 'lost', ''] or pd.isna(pos1):
-        pos1_val = None
-    else:
-        try:
-            pos1_val = int(pos1)
-        except:
-            pos1_val = None
+def extract_aio_links(aio_content):
+    """Extract links from AIO content"""
+    if pd.isna(aio_content) or not aio_content or str(aio_content) == '#ERROR!':
+        return []
     
-    if str(pos2).lower() in ['not ranking', 'lost', ''] or pd.isna(pos2):
-        pos2_val = None
-    else:
-        try:
-            pos2_val = int(pos2)
-        except:
-            pos2_val = None
+    content = str(aio_content)
+    links = []
     
-    if pos1_val is None and pos2_val is None:
-        return 0, "No change (both not ranking)"
-    elif pos1_val is None and pos2_val is not None:
-        return float('inf'), f"New ranking at #{pos2_val}"
-    elif pos1_val is not None and pos2_val is None:
-        return float('-inf'), f"Lost ranking (was #{pos1_val})"
-    else:
-        change = pos1_val - pos2_val
-        if change > 0:
-            return change, f"Improved by {change} positions (#{pos1_val} → #{pos2_val})"
-        elif change < 0:
-            return change, f"Declined by {abs(change)} positions (#{pos1_val} → #{pos2_val})"
-        else:
-            return 0, f"No change (#{pos1_val})"
+    # Look for URLs in the content
+    import re
+    url_pattern = r'https?://[^\s\n]+'
+    found_urls = re.findall(url_pattern, content)
+    
+    for url in found_urls:
+        # Clean up URL (remove trailing punctuation)
+        clean_url = url.rstrip('.,;:)')
+        if clean_url not in links:
+            links.append(clean_url)
+    
+    return links
 
 def show_dashboard_overview(latest_data, filtered_data):
     """Dashboard Overview Page"""
@@ -519,7 +518,7 @@ def show_keyword_tracking(df_processed, filtered_data):
     
     # Keyword selector
     if 'Keyword' in df_processed.columns:
-        available_keywords = df_processed['Keyword'].dropna().unique()
+        available_keywords = sorted(df_processed['Keyword'].dropna().unique())
     else:
         st.markdown('<div class="stError">❌ No "Keyword" column found in data</div>', unsafe_allow_html=True)
         return
@@ -606,17 +605,213 @@ def show_keyword_tracking(df_processed, filtered_data):
             else:
                 st.markdown('<div class="stInfo">No numeric position data available for this keyword.</div>', unsafe_allow_html=True)
 
+def show_ai_overview_tracking(df_processed):
+    """AI Overview Tracking Page"""
+    st.markdown('<h2 class="section-header">🤖 AI Overview Tracking</h2>', unsafe_allow_html=True)
+    
+    # Filter data to only show records with AI Overview = Yes
+    if 'AI Overview' in df_processed.columns:
+        ai_data = df_processed[
+            df_processed['AI Overview'].str.lower().isin(['yes', 'y', 'true'])
+        ].copy()
+    else:
+        st.markdown('<div class="stError">❌ No "AI Overview" column found in data</div>', unsafe_allow_html=True)
+        return
+    
+    if ai_data.empty:
+        st.markdown('<div class="stWarning">⚠️ No AI Overview data found in the dataset.</div>', unsafe_allow_html=True)
+        return
+    
+    # Summary metrics
+    st.markdown('<h3 class="section-header">📊 AI Overview Summary</h3>', unsafe_allow_html=True)
+    
+    if 'DateTime' in ai_data.columns:
+        ai_data['Date'] = ai_data['DateTime'].dt.date
+        latest_ai_data = ai_data.sort_values('DateTime').groupby('Keyword').tail(1).reset_index(drop=True)
+    else:
+        latest_ai_data = ai_data.groupby('Keyword').tail(1).reset_index(drop=True)
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        total_keywords_with_ai = latest_ai_data['Keyword'].nunique()
+        st.metric("Keywords with AI Overview", total_keywords_with_ai)
+    
+    with col2:
+        total_ai_records = len(ai_data)
+        st.metric("Total AI Overview Records", total_ai_records)
+    
+    with col3:
+        if 'DateTime' in ai_data.columns:
+            unique_dates = ai_data['Date'].nunique()
+            st.metric("Days with AI Overview Data", unique_dates)
+    
+    with col4:
+        avg_position = latest_ai_data['Recharge Position'].apply(
+            lambda x: int(x) if isinstance(x, (int, float)) and not pd.isna(x) else None
+        ).mean()
+        if not pd.isna(avg_position):
+            st.metric("Avg Position (AI Keywords)", f"{avg_position:.1f}")
+    
+    # Keywords with AI Overview table
+    st.markdown('<h3 class="section-header">🔍 Keywords with AI Overview</h3>', unsafe_allow_html=True)
+    
+    if not latest_ai_data.empty:
+        display_data = latest_ai_data.copy()
+        
+        # Format data for display
+        if 'Recharge Position' in display_data.columns:
+            display_data['Position_Display'] = display_data['Recharge Position'].apply(
+                lambda x: get_position_status(x)[0]
+            )
+        
+        if 'Position Change' in display_data.columns:
+            display_data['Change_Display'] = display_data['Position Change'].fillna('Unknown')
+        
+        # Select columns for display
+        display_columns = ['Keyword', 'Market', 'Position_Display', 'Change_Display']
+        column_mapping = {
+            'Position_Display': 'Position',
+            'Change_Display': 'Latest Change'
+        }
+        
+        available_cols = [col for col in display_columns if col in display_data.columns]
+        if available_cols:
+            table_data = display_data[available_cols].rename(columns=column_mapping)
+            st.dataframe(table_data, use_container_width=True, hide_index=True)
+    
+    # Keyword selector for detailed AI analysis
+    st.markdown('<h3 class="section-header">📋 Detailed AI Overview Analysis</h3>', unsafe_allow_html=True)
+    
+    available_ai_keywords = sorted(ai_data['Keyword'].unique())
+    selected_ai_keyword = st.selectbox(
+        "🔍 Select keyword for AI Overview analysis:",
+        available_ai_keywords,
+        key="ai_keyword_selector"
+    )
+    
+    if selected_ai_keyword:
+        keyword_ai_data = ai_data[ai_data['Keyword'] == selected_ai_keyword].copy()
+        
+        if 'DateTime' in keyword_ai_data.columns:
+            keyword_ai_data = keyword_ai_data.sort_values('DateTime')
+        
+        # Show AI Overview content for each date
+        st.markdown(f'<h4 style="color: #ffffff;">🤖 AI Overview Content History for "{selected_ai_keyword}"</h4>', unsafe_allow_html=True)
+        
+        for idx, row in keyword_ai_data.iterrows():
+            date_str = row.get('DateTime', 'Unknown Date')
+            if hasattr(date_str, 'strftime'):
+                date_display = date_str.strftime('%Y-%m-%d %H:%M')
+            else:
+                date_display = str(date_str)
+            
+            position = row.get('Recharge Position', 'Unknown')
+            
+            with st.expander(f"📅 {date_display} - Position: {position}", expanded=False):
+                col_content, col_links = st.columns([2, 1])
+                
+                with col_content:
+                    st.markdown("**🤖 AI Overview Content:**")
+                    aio_content = row.get('AIO Links', '')
+                    if pd.notna(aio_content) and aio_content and str(aio_content) != '#ERROR!':
+                        st.text_area(
+                            f"AI Overview content",
+                            aio_content,
+                            height=200,
+                            key=f"ai_content_{idx}",
+                            label_visibility="collapsed"
+                        )
+                    else:
+                        st.write("No AI Overview content available")
+                
+                with col_links:
+                    st.markdown("**🔗 Extracted Links:**")
+                    links = extract_aio_links(row.get('AIO Links', ''))
+                    if links:
+                        for i, link in enumerate(links, 1):
+                            st.markdown(f"{i}. [{link}]({link})")
+                    else:
+                        st.write("No links found")
+                
+                # Show original SERP positions
+                st.markdown("**📊 Original SERP Positions:**")
+                positions_data = []
+                for pos in range(1, 6):
+                    col_name = f'Position {pos}'
+                    if col_name in row and pd.notna(row[col_name]) and row[col_name]:
+                        url = str(row[col_name])
+                        # Extract domain
+                        try:
+                            from urllib.parse import urlparse
+                            domain = urlparse(url).netloc.replace('www.', '')
+                        except:
+                            domain = url[:50] + "..." if len(url) > 50 else url
+                        
+                        is_recharge = 'recharge.com' in url.lower()
+                        positions_data.append({
+                            'Position': pos,
+                            'Domain': domain,
+                            'URL': url,
+                            'Is Recharge': '🔋 Yes' if is_recharge else '❌ No'
+                        })
+                
+                if positions_data:
+                    positions_df = pd.DataFrame(positions_data)
+                    st.dataframe(positions_df, use_container_width=True, hide_index=True)
+        
+        # AI Overview Links Table
+        st.markdown('<h4 style="color: #ffffff;">🔗 All AI Overview Links for this Keyword</h4>', unsafe_allow_html=True)
+        
+        all_links = []
+        for idx, row in keyword_ai_data.iterrows():
+            date_str = row.get('DateTime', 'Unknown Date')
+            if hasattr(date_str, 'strftime'):
+                date_display = date_str.strftime('%Y-%m-%d')
+            else:
+                date_display = str(date_str)
+            
+            links = extract_aio_links(row.get('AIO Links', ''))
+            for link in links:
+                all_links.append({
+                    'Date': date_display,
+                    'URL': link,
+                    'Domain': link.split('/')[2] if '://' in link else link[:50]
+                })
+        
+        if all_links:
+            links_df = pd.DataFrame(all_links)
+            st.dataframe(links_df, use_container_width=True, hide_index=True)
+        else:
+            st.write("No links found in AI Overview content")
+
 def show_date_comparison(df_processed):
     """Date Comparison Page with full SERP results comparison"""
     st.markdown('<h2 class="section-header">📅 SERP Results Comparison</h2>', unsafe_allow_html=True)
     
-    # Get available dates
+    # Keyword selector first
+    if 'Keyword' in df_processed.columns:
+        available_keywords = sorted(df_processed['Keyword'].unique())
+        selected_keyword = st.selectbox(
+            "🔍 Select keyword to compare SERP results:",
+            available_keywords,
+            key="serp_comparison_keyword"
+        )
+    else:
+        st.markdown('<div class="stError">❌ No "Keyword" column found in data</div>', unsafe_allow_html=True)
+        return
+    
+    if not selected_keyword:
+        return
+    
+    # Get available dates for selected keyword only
     if 'DateTime' in df_processed.columns:
-        df_processed['Date'] = df_processed['DateTime'].dt.date
-        available_dates = sorted(df_processed['Date'].unique())
+        keyword_data = df_processed[df_processed['Keyword'] == selected_keyword].copy()
+        keyword_data['Date'] = keyword_data['DateTime'].dt.date
+        available_dates = sorted(keyword_data['Date'].unique())
         
         if len(available_dates) < 2:
-            st.markdown('<div class="stWarning">⚠️ Need at least 2 different dates for comparison.</div>', unsafe_allow_html=True)
+            st.markdown('<div class="stWarning">⚠️ Need at least 2 different dates for comparison for this keyword.</div>', unsafe_allow_html=True)
             st.markdown('<div class="stInfo">💡 This feature will be most useful when you have historical data spanning multiple days/weeks.</div>', unsafe_allow_html=True)
             return
         
@@ -644,31 +839,17 @@ def show_date_comparison(df_processed):
             st.markdown('<div class="stWarning">⚠️ Please select two different dates for comparison.</div>', unsafe_allow_html=True)
             return
         
-        # Filter data for selected dates
-        data1 = df_processed[df_processed['Date'] == date1].copy()
-        data2 = df_processed[df_processed['Date'] == date2].copy()
+        # Filter data for selected dates and keyword
+        data1 = keyword_data[keyword_data['Date'] == date1].copy()
+        data2 = keyword_data[keyword_data['Date'] == date2].copy()
         
         if data1.empty or data2.empty:
-            st.markdown('<div class="stError">❌ No data found for one or both selected dates.</div>', unsafe_allow_html=True)
-            return
-        
-        # Keyword selector for SERP comparison
-        available_keywords = list(set(data1['Keyword'].unique()) | set(data2['Keyword'].unique()))
-        selected_keyword = st.selectbox(
-            "🔍 Select keyword to compare SERP results:",
-            available_keywords,
-            key="serp_comparison_keyword"
-        )
-        
-        if not selected_keyword:
+            st.markdown('<div class="stError">❌ No data found for one or both selected dates for this keyword.</div>', unsafe_allow_html=True)
             return
         
         # Get data for selected keyword - FIXED: Proper boolean evaluation
-        kw_data1_filtered = data1[data1['Keyword'] == selected_keyword]
-        kw_data2_filtered = data2[data2['Keyword'] == selected_keyword]
-        
-        kw_data1 = kw_data1_filtered.iloc[0] if not kw_data1_filtered.empty else None
-        kw_data2 = kw_data2_filtered.iloc[0] if not kw_data2_filtered.empty else None
+        kw_data1 = data1.iloc[0] if not data1.empty else None
+        kw_data2 = data2.iloc[0] if not data2.empty else None
         
         # FIXED: Use proper None checks instead of pandas boolean evaluation
         if kw_data1 is None and kw_data2 is None:
@@ -1105,12 +1286,12 @@ def main():
     
     page = st.sidebar.radio(
         "Select Page",
-        ["📊 Dashboard Overview", "📈 Keyword Tracking", "📅 Date Comparison"],
+        ["📊 Dashboard Overview", "📈 Keyword Tracking", "🤖 AI Overview Tracking", "📅 Date Comparison"],
         key="main_nav"
     )
     
-    # Filters (not for Date Comparison page)
-    if page != "📅 Date Comparison":
+    # Filters (not for Date Comparison or AI Overview pages)
+    if page not in ["📅 Date Comparison", "🤖 AI Overview Tracking"]:
         st.sidebar.markdown("---")
         st.sidebar.markdown('<h3 style="color: #ffffff;">🎯 Filters</h3>', unsafe_allow_html=True)
         
@@ -1165,6 +1346,8 @@ def main():
         show_dashboard_overview(latest_data, filtered_data)
     elif page == "📈 Keyword Tracking":
         show_keyword_tracking(df_processed, filtered_data)
+    elif page == "🤖 AI Overview Tracking":
+        show_ai_overview_tracking(df_processed)
     elif page == "📅 Date Comparison":
         show_date_comparison(df_processed)
 
