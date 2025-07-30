@@ -200,24 +200,80 @@ st.markdown("""
 
 @st.cache_data(ttl=60)  # Cache for 1 minute to allow frequent updates
 def load_data_from_google_sheets():
-    """Load data directly from the specified Google Sheets"""
+    """Load data directly from the specified Google Sheets with all keyword sheets"""
     
     # Your Google Sheets URL
     sheet_id = "1hOMEaZ_zfliPxJ7N-9EJ64KvyRl9J-feoR30GB-bI_o"
-    csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid=0"
+    
+    # First, try to get the main sheet to understand the structure
+    main_csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid=0"
     
     try:
-        # Read the data
-        df = pd.read_csv(csv_url)
+        # Read the main configuration sheet
+        main_df = pd.read_csv(main_csv_url)
+        st.info(f"📋 Main sheet loaded with {len(main_df)} keyword configurations")
         
-        if df.empty:
-            st.error("⚠️ The Google Sheet appears to be empty")
-            return pd.DataFrame()
+        # Show sample of main sheet for debugging
+        with st.expander("🔍 Main Sheet Data", expanded=False):
+            st.dataframe(main_df.head())
         
-        # Add sheet name for consistency
-        df['Sheet_Name'] = 'buy_neosurf_online'
+        # Now we need to try different GIDs to get all the keyword tracking sheets
+        # Common GID patterns in Google Sheets
+        possible_gids = [
+            0,      # Main sheet
+            1000,   # Common starting point for additional sheets
+            1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010,
+            1011, 1012, 1013, 1014, 1015, 1016, 1017, 1018, 1019, 1020,
+            2000, 2001, 2002, 2003, 2004, 2005,  # Another common pattern
+            123456, 234567, 345678, 456789, 567890,  # Random GIDs
+        ]
         
-        return df
+        all_keyword_data = []
+        successful_sheets = 0
+        
+        # Try to load keyword tracking sheets
+        for gid in possible_gids[1:]:  # Skip 0 as it's the main sheet
+            try:
+                keyword_csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
+                keyword_df = pd.read_csv(keyword_csv_url)
+                
+                # Check if this looks like a keyword tracking sheet
+                if not keyword_df.empty and 'Date/Time' in keyword_df.columns and 'Recharge Position' in keyword_df.columns:
+                    # Add sheet identifier
+                    keyword_df['Sheet_Name'] = f'keyword_sheet_{gid}'
+                    all_keyword_data.append(keyword_df)
+                    successful_sheets += 1
+                    st.success(f"✅ Loaded keyword sheet GID {gid} with {len(keyword_df)} rows")
+                    
+                    # Show sample for first successful sheet
+                    if successful_sheets == 1:
+                        with st.expander(f"🔍 Sample Keyword Data (GID {gid})", expanded=False):
+                            st.dataframe(keyword_df.head(3))
+                            st.markdown(f"**Columns:** {list(keyword_df.columns)}")
+                    
+                    # Limit to prevent too many requests
+                    if successful_sheets >= 15:  # Max 15 sheets to avoid hitting limits
+                        break
+                        
+            except Exception as e:
+                # Silently continue - many GIDs won't exist
+                continue
+        
+        if all_keyword_data:
+            # Combine all keyword tracking data
+            combined_df = pd.concat(all_keyword_data, ignore_index=True)
+            st.success(f"🎉 Successfully loaded {successful_sheets} keyword tracking sheets with {len(combined_df)} total records")
+            return combined_df
+        else:
+            st.error("❌ No keyword tracking sheets found. Trying single sheet approach...")
+            
+            # Fallback: try the main sheet as tracking data
+            if 'Date/Time' in main_df.columns:
+                main_df['Sheet_Name'] = 'main_sheet'
+                return main_df
+            else:
+                st.error("❌ Main sheet doesn't contain tracking data either")
+                return pd.DataFrame()
         
     except Exception as e:
         st.error(f"❌ Error reading Google Sheets: {str(e)}")
@@ -226,7 +282,7 @@ def load_data_from_google_sheets():
         1. Open the Google Sheet
         2. Click Share button (top right)
         3. Change to "Anyone with the link" can view
-        4. Copy the link and refresh this page
+        4. Save and refresh this page
         """)
         return pd.DataFrame()
 
@@ -1277,16 +1333,28 @@ def main():
     
     if df.empty:
         st.error("⚠️ No data could be loaded from Google Sheets. Please check the sheet permissions.")
+        st.markdown("""
+        ### 🔧 Troubleshooting Steps:
+        1. **Make Google Sheet Public**: Share → Anyone with link → Viewer
+        2. **Check Sheet Structure**: Should have Date/Time, Keyword, Recharge Position columns
+        3. **Multiple Sheets**: The system tries to read multiple sheets with different GIDs
+        """)
         st.stop()
         return
     
-    # Show data loaded successfully
-    st.success(f"✅ Successfully loaded {len(df)} rows from Google Sheets")
-    
-    # Show sample of loaded data for debugging
-    with st.expander("🔍 Sample of loaded data", expanded=False):
+    # Show raw data sample for debugging
+    with st.expander("🔍 Raw Data Analysis", expanded=False):
+        st.markdown("**Raw Data Sample:**")
         st.dataframe(df.head(5))
-        st.markdown(f"**Columns:** {list(df.columns)}")
+        st.markdown(f"**Total rows loaded:** {len(df)}")
+        st.markdown(f"**Columns found:** {list(df.columns)}")
+        
+        # Show datetime samples
+        if 'Date/Time' in df.columns:
+            st.markdown("**Date/Time samples:**")
+            date_samples = df['Date/Time'].dropna().head(5).tolist()
+            for i, sample in enumerate(date_samples):
+                st.markdown(f"- Row {i+1}: `{sample}` (type: {type(sample).__name__})")
     
     # Process data
     df_processed = df.copy()
@@ -1462,6 +1530,16 @@ def main():
         
         if parsing_info["removed_rows"] > 0:
             st.sidebar.markdown(f'<p style="color: #f59e0b; font-size: 12px;">⚠️ Removed {parsing_info["removed_rows"]} rows with invalid dates</p>', unsafe_allow_html=True)
+        else:
+            st.sidebar.markdown('<p style="color: #10b981; font-size: 12px;">✅ All dates parsed successfully!</p>', unsafe_allow_html=True)
+        
+        # Show sample of parsed times
+        if parsing_info["successful_parse"] > 0:
+            sample_times = df_processed[df_processed['DateTime'].notna()]['DateTime'].head(3)
+            st.sidebar.markdown('<p style="color: #10b981; font-size: 11px;">Sample parsed times:</p>', unsafe_allow_html=True)
+            for i, dt in enumerate(sample_times):
+                formatted = dt.strftime('%b %d, %Y at %I:%M:%S %p')
+                st.sidebar.markdown(f'<p style="color: #10b981; font-size: 11px;">• {formatted}</p>', unsafe_allow_html=True)
     
     # Page routing
     if page == "📊 Dashboard Overview":
