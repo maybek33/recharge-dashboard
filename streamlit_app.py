@@ -378,22 +378,50 @@ def main():
         df = load_data_from_sheets()
     
     if df.empty:
-        st.warning("⚠️ No data found. Please check your Google Sheets connection.")
+        st.error("❌ No data found. Please check your Google Sheets connection.")
+        st.info("🔧 Troubleshooting steps:")
+        st.write("1. Verify your Google Sheets API credentials are correct")
+        st.write("2. Check that your service account has access to the spreadsheet")
+        st.write("3. Ensure your keyword sheets have data")
+        st.write("4. Confirm your automation script is running and adding data")
         return
     
     # Process data
     df_processed = df.copy()
+    
+    # Extract keyword, language, location from sheet names
     df_processed[['Keyword_Clean', 'Language', 'Location']] = df_processed['Sheet_Name'].apply(
         lambda x: pd.Series(parse_sheet_info(x))
     )
     df_processed['Market'] = df_processed['Location'].apply(get_country_flag)
     
+    # Show data processing info
+    st.info(f"📊 Data Processing Summary:")
+    st.write(f"• Total records: {len(df_processed)}")
+    st.write(f"• Unique keywords: {df_processed['Keyword_Clean'].nunique()}")
+    st.write(f"• Unique markets: {df_processed['Market'].nunique()}")
+    st.write(f"• Keywords found: {sorted(df_processed['Keyword_Clean'].unique().tolist())}")
+    
     # Convert datetime
     if 'Date/Time' in df_processed.columns:
         df_processed['DateTime'] = pd.to_datetime(df_processed['Date/Time'], errors='coerce')
-        latest_data = df_processed.sort_values('DateTime').groupby('Keyword_Clean').tail(1).reset_index(drop=True)
+        # Get latest data for each keyword (most recent timestamp)
+        latest_data = df_processed.sort_values('DateTime').groupby(['Keyword_Clean', 'Market']).tail(1).reset_index(drop=True)
+        st.write(f"• Latest data points: {len(latest_data)}")
     else:
-        latest_data = df_processed.groupby('Keyword_Clean').tail(1).reset_index(drop=True)
+        # If no datetime, get the last row for each keyword
+        latest_data = df_processed.groupby(['Keyword_Clean', 'Market']).tail(1).reset_index(drop=True)
+        st.write(f"• Data points (no datetime): {len(latest_data)}")
+    
+    # Show which keywords we have in latest data
+    st.write(f"• Keywords in latest data: {sorted(latest_data['Keyword_Clean'].unique().tolist())}")
+    
+    # Debug info about sheet names
+    if st.checkbox("🔍 Show debug info about sheet processing"):
+        sheet_debug = df_processed[['Sheet_Name', 'Keyword_Clean', 'Language', 'Location', 'Market']].drop_duplicates()
+        st.dataframe(sheet_debug, use_container_width=True)
+    
+    st.markdown("---")
     
     # Sidebar Navigation
     st.sidebar.markdown("""
@@ -675,48 +703,59 @@ def show_keyword_tracking(df_processed, filtered_data):
     """Individual Keyword Tracking Page"""
     st.markdown('<h2 class="section-header">📈 Individual Keyword Performance</h2>', unsafe_allow_html=True)
     
-    # Keyword selector
-    available_keywords = df_processed['Keyword_Clean'].unique() if 'Keyword_Clean' in df_processed.columns else []
+    # Show all available keywords from the full dataset, not just filtered
+    all_keywords = sorted(df_processed['Keyword_Clean'].unique()) if 'Keyword_Clean' in df_processed.columns else []
     
-    if len(available_keywords) == 0:
-        st.warning("No keywords found in the data.")
+    if len(all_keywords) == 0:
+        st.warning("❌ No keywords found in the data.")
+        st.info("📋 Make sure your Google Sheets have data and the script is running.")
         return
     
+    st.success(f"📊 Found {len(all_keywords)} keywords total")
+    
+    # Keyword selector - show ALL keywords
     selected_keyword = st.selectbox(
         "🔍 Select keyword to analyze:",
-        available_keywords,
-        key="keyword_selector"
+        all_keywords,
+        key="keyword_selector_tracking"
     )
     
     if selected_keyword:
-        # Filter data for selected keyword
+        # Filter data for selected keyword from full dataset
         keyword_data = df_processed[df_processed['Keyword_Clean'] == selected_keyword].copy()
+        
+        if keyword_data.empty:
+            st.error(f"❌ No data found for keyword: {selected_keyword}")
+            return
+        
+        st.info(f"📈 Found {len(keyword_data)} records for '{selected_keyword}'")
         
         if 'DateTime' in keyword_data.columns:
             keyword_data = keyword_data.sort_values('DateTime')
-        
-        # Key metrics for this keyword
-        col1, col2, col3, col4 = st.columns(4)
-        
+            
+        # Show latest data point info
         if not keyword_data.empty:
             latest_row = keyword_data.iloc[-1]
             
+            # Key metrics for this keyword
+            col1, col2, col3, col4 = st.columns(4)
+            
             with col1:
                 current_pos = latest_row.get('Recharge Position', 'Unknown')
-                st.metric("Current Position", current_pos)
+                st.metric("📍 Current Position", current_pos)
             
             with col2:
                 change = latest_row.get('Position Change', 'Unknown')
-                st.metric("Latest Change", change)
+                st.metric("📊 Latest Change", change)
             
             with col3:
                 market = latest_row.get('Market', 'Unknown')
-                st.metric("Market", market)
+                st.metric("🌍 Market", market)
             
             with col4:
                 ai_status = latest_row.get('AI Overview', 'Unknown')
                 ai_display = '🤖 Yes' if str(ai_status).lower() in ['yes', 'y', 'true'] else '❌ No'
-                st.metric("AI Overview", ai_display)
+                st.metric("🤖 AI Overview", ai_display)
         
         # Position tracking chart
         st.markdown('<h3 class="section-header">📊 Position History</h3>', unsafe_allow_html=True)
@@ -725,19 +764,20 @@ def show_keyword_tracking(df_processed, filtered_data):
             # Prepare data for plotting
             plot_data = keyword_data.copy()
             plot_data['Position_Numeric'] = plot_data['Recharge Position'].apply(
-                lambda x: int(x) if isinstance(x, (int, float)) and not pd.isna(x) else None
+                lambda x: int(x) if isinstance(x, (int, float)) and not pd.isna(x) and str(x).isdigit() else None
             )
             
             # Remove rows where position is not numeric
-            plot_data = plot_data.dropna(subset=['Position_Numeric'])
+            plot_data_clean = plot_data.dropna(subset=['Position_Numeric'])
             
-            if not plot_data.empty:
+            if not plot_data_clean.empty:
                 fig = px.line(
-                    plot_data,
+                    plot_data_clean,
                     x='DateTime',
                     y='Position_Numeric',
                     title=f'Position Tracking for "{selected_keyword}"',
-                    markers=True
+                    markers=True,
+                    line_shape='linear'
                 )
                 
                 # Invert y-axis (position 1 should be at top)
@@ -746,7 +786,7 @@ def show_keyword_tracking(df_processed, filtered_data):
                     height=400,
                     font_family="Inter",
                     yaxis_title="Search Position",
-                    xaxis_title="Date"
+                    xaxis_title="Date & Time"
                 )
                 
                 # Add horizontal lines for key thresholds
@@ -756,14 +796,30 @@ def show_keyword_tracking(df_processed, filtered_data):
                              annotation_text="First Page Threshold")
                 
                 st.plotly_chart(fig, use_container_width=True)
+                
+                # Show position data summary
+                st.info(f"📊 Position data points: {len(plot_data_clean)} out of {len(plot_data)} total records")
+                
             else:
-                st.info("No numeric position data available for this keyword.")
+                st.warning("⚠️ No numeric position data available for this keyword.")
+                
+                # Show what data we do have
+                if 'Recharge Position' in keyword_data.columns:
+                    position_values = keyword_data['Recharge Position'].value_counts()
+                    st.write("📋 Position values found:")
+                    st.dataframe(position_values.to_frame('Count'))
         
         # AI Overview tracking
         st.markdown('<h3 class="section-header">🤖 AI Overview History</h3>', unsafe_allow_html=True)
         
         if 'AI Overview' in keyword_data.columns:
-            ai_data = keyword_data[['DateTime', 'AI Overview', 'AIO Links']].copy() if 'DateTime' in keyword_data.columns else keyword_data[['AI Overview', 'AIO Links']].copy()
+            ai_columns = ['AI Overview']
+            if 'DateTime' in keyword_data.columns:
+                ai_columns.insert(0, 'DateTime')
+            if 'AIO Links' in keyword_data.columns:
+                ai_columns.append('AIO Links')
+                
+            ai_data = keyword_data[ai_columns].copy()
             ai_data['AI_Status'] = ai_data['AI Overview'].apply(
                 lambda x: 1 if str(x).lower() in ['yes', 'y', 'true'] else 0
             )
@@ -786,48 +842,80 @@ def show_keyword_tracking(df_processed, filtered_data):
                 )
                 
                 st.plotly_chart(fig_ai, use_container_width=True)
+                
+                # AI Overview summary
+                ai_count = ai_data['AI_Status'].sum()
+                total_checks = len(ai_data)
+                ai_percentage = (ai_count / total_checks * 100) if total_checks > 0 else 0
+                st.info(f"🤖 AI Overview detected in {ai_count} out of {total_checks} checks ({ai_percentage:.1f}%)")
         
         # Detailed history table
         st.markdown('<h3 class="section-header">📜 Complete History</h3>', unsafe_allow_html=True)
         
-        with st.expander("View Complete Tracking History", expanded=False):
+        with st.expander("📊 View Complete Tracking History", expanded=False):
             if not keyword_data.empty:
-                history_columns = ['DateTime', 'Recharge Position', 'Position Change', 'AI Overview']
-                available_history_cols = [col for col in history_columns if col in keyword_data.columns]
+                # Show relevant columns
+                display_columns = []
+                column_mapping = {}
                 
-                if available_history_cols:
+                if 'DateTime' in keyword_data.columns:
+                    display_columns.append('DateTime')
+                    column_mapping['DateTime'] = 'Date & Time'
+                
+                important_cols = ['Recharge Position', 'Position Change', 'AI Overview', 'Market']
+                for col in important_cols:
+                    if col in keyword_data.columns:
+                        display_columns.append(col)
+                        
+                if display_columns:
+                    history_df = keyword_data[display_columns].copy()
+                    if 'DateTime' in history_df.columns:
+                        history_df = history_df.sort_values('DateTime', ascending=False)
+                    
                     st.dataframe(
-                        keyword_data[available_history_cols].sort_values('DateTime', ascending=False) if 'DateTime' in available_history_cols else keyword_data[available_history_cols],
+                        history_df.rename(columns=column_mapping),
                         use_container_width=True,
                         hide_index=True
+                    )
+                    
+                    # Export option
+                    csv_data = history_df.to_csv(index=False)
+                    st.download_button(
+                        label=f"📥 Download {selected_keyword} history as CSV",
+                        data=csv_data,
+                        file_name=f"{selected_keyword}_history_{datetime.datetime.now().strftime('%Y%m%d')}.csv",
+                        mime="text/csv"
                     )
 
 def show_ai_overview_analysis(df_processed, filtered_data):
     """AI Overview Analysis Page"""
     st.markdown('<h2 class="section-header">🤖 AI Overview Analysis</h2>', unsafe_allow_html=True)
     
+    # Use full dataset for AI analysis
+    full_ai_data = df_processed.copy() if not df_processed.empty else filtered_data.copy()
+    
     # AI Overview metrics
-    if 'AI Overview' in df_processed.columns:
-        total_searches = len(df_processed)
-        ai_present = len(df_processed[df_processed['AI Overview'].str.lower().isin(['yes', 'y', 'true'])])
+    if 'AI Overview' in full_ai_data.columns:
+        total_searches = len(full_ai_data)
+        ai_present = len(full_ai_data[full_ai_data['AI Overview'].str.lower().isin(['yes', 'y', 'true'])])
         ai_coverage = (ai_present / total_searches * 100) if total_searches > 0 else 0
         
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            st.metric("Total Searches", total_searches)
+            st.metric("📊 Total Searches", total_searches)
         
         with col2:
-            st.metric("AI Overviews Detected", ai_present)
+            st.metric("🤖 AI Overviews Detected", ai_present)
         
         with col3:
-            st.metric("AI Coverage Rate", f"{ai_coverage:.1f}%")
+            st.metric("📈 AI Coverage Rate", f"{ai_coverage:.1f}%")
     
-    # AI Overview by keyword
+    # AI Overview by keyword (use full dataset)
     st.markdown('<h3 class="section-header">📊 AI Overview by Keyword</h3>', unsafe_allow_html=True)
     
-    if 'AI Overview' in df_processed.columns and 'Keyword_Clean' in df_processed.columns:
-        ai_by_keyword = df_processed.groupby('Keyword_Clean')['AI Overview'].apply(
+    if 'AI Overview' in full_ai_data.columns and 'Keyword_Clean' in full_ai_data.columns:
+        ai_by_keyword = full_ai_data.groupby('Keyword_Clean')['AI Overview'].apply(
             lambda x: (x.str.lower().isin(['yes', 'y', 'true']).sum() / len(x) * 100)
         ).reset_index()
         ai_by_keyword.columns = ['Keyword', 'AI_Coverage_Percentage']
@@ -843,27 +931,49 @@ def show_ai_overview_analysis(df_processed, filtered_data):
         )
         fig_ai_keywords.update_layout(height=400, font_family="Inter", yaxis_title="Coverage %")
         st.plotly_chart(fig_ai_keywords, use_container_width=True)
+        
+        # Show the data table too
+        st.dataframe(ai_by_keyword, use_container_width=True, hide_index=True)
     
-    # AI Overview content viewer
+    # AI Overview content viewer (use filtered data for user selection)
     st.markdown('<h3 class="section-header">🔍 AI Overview Content</h3>', unsafe_allow_html=True)
     
-    # Filter for keywords with AI Overview
-    ai_keywords = filtered_data[
-        filtered_data['AI Overview'].str.lower().isin(['yes', 'y', 'true'])
-    ] if 'AI Overview' in filtered_data.columns else pd.DataFrame()
+    # Get all keywords with AI Overview from full dataset
+    all_ai_keywords = full_ai_data[
+        full_ai_data['AI Overview'].str.lower().isin(['yes', 'y', 'true'])
+    ] if 'AI Overview' in full_ai_data.columns else pd.DataFrame()
     
-    if not ai_keywords.empty:
+    if not all_ai_keywords.empty:
+        unique_ai_keywords = sorted(all_ai_keywords['Keyword_Clean'].unique())
+        
         selected_ai_keyword = st.selectbox(
-            "Select keyword to view AI Overview content:",
-            ai_keywords['Keyword_Clean'].unique(),
+            "🔍 Select keyword to view AI Overview content:",
+            unique_ai_keywords,
             key="ai_keyword_selector"
         )
         
         if selected_ai_keyword:
-            ai_keyword_data = ai_keywords[ai_keywords['Keyword_Clean'] == selected_ai_keyword]
+            # Get the most recent AI data for this keyword
+            keyword_ai_data = all_ai_keywords[
+                all_ai_keywords['Keyword_Clean'] == selected_ai_keyword
+            ]
             
-            if not ai_keyword_data.empty:
-                latest_ai_data = ai_keyword_data.iloc[-1]
+            if 'DateTime' in keyword_ai_data.columns:
+                keyword_ai_data = keyword_ai_data.sort_values('DateTime', ascending=False)
+            
+            if not keyword_ai_data.empty:
+                latest_ai_data = keyword_ai_data.iloc[0]  # Most recent
+                
+                # Show basic info
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("🌍 Market", latest_ai_data.get('Market', 'Unknown'))
+                with col2:
+                    st.metric("📍 Position", latest_ai_data.get('Recharge Position', 'Unknown'))
+                with col3:
+                    st.metric("📅 Last Check", 
+                             latest_ai_data.get('DateTime', 'Unknown').strftime('%Y-%m-%d %H:%M') 
+                             if pd.notna(latest_ai_data.get('DateTime')) else 'Unknown')
                 
                 # Show AIO Links
                 if 'AIO Links' in latest_ai_data and pd.notna(latest_ai_data['AIO Links']) and latest_ai_data['AIO Links']:
@@ -872,32 +982,53 @@ def show_ai_overview_analysis(df_processed, filtered_data):
                     aio_links = str(latest_ai_data['AIO Links']).split('\n')
                     for i, link in enumerate(aio_links, 1):
                         if link.strip():
-                            st.markdown(f"**{i}.** [{link}]({link})")
+                            if link.startswith('http'):
+                                st.markdown(f"**{i}.** [{link}]({link})")
+                            else:
+                                st.markdown(f"**{i}.** {link}")
                 
                 # Show Full Results Data with AI content
                 if 'Full Results Data' in latest_ai_data and pd.notna(latest_ai_data['Full Results Data']):
                     with st.expander(f"📄 Complete AI Overview Data for '{selected_ai_keyword}'", expanded=True):
                         st.text_area(
                             "Full AI Overview Results",
-                            latest_ai_data['Full Results Data'],
+                            str(latest_ai_data['Full Results Data']),
                             height=400,
                             key=f"ai_content_{selected_ai_keyword}"
                         )
+                
+                # Show historical AI data for this keyword
+                if len(keyword_ai_data) > 1:
+                    st.markdown("#### 📈 AI Overview History")
+                    
+                    history_cols = ['DateTime', 'AI Overview', 'Recharge Position']
+                    available_cols = [col for col in history_cols if col in keyword_ai_data.columns]
+                    
+                    if available_cols:
+                        st.dataframe(
+                            keyword_ai_data[available_cols],
+                            use_container_width=True,
+                            hide_index=True
+                        )
     else:
-        st.info("No AI Overviews found with current filters.")
+        st.info("❌ No AI Overviews found in the current data.")
+        st.write("💡 AI Overviews may appear when:")
+        st.write("• The query triggers Google's AI response")
+        st.write("• The search is informational rather than navigational")
+        st.write("• Google has sufficient information to generate an overview")
     
     # AI Overview trends over time
     st.markdown('<h3 class="section-header">📈 AI Overview Trends</h3>', unsafe_allow_html=True)
     
-    if 'DateTime' in df_processed.columns and 'AI Overview' in df_processed.columns:
+    if 'DateTime' in full_ai_data.columns and 'AI Overview' in full_ai_data.columns:
         # Group by date and calculate AI percentage
-        df_processed['Date'] = df_processed['DateTime'].dt.date
-        ai_trends = df_processed.groupby('Date').agg({
+        full_ai_data['Date'] = pd.to_datetime(full_ai_data['DateTime']).dt.date
+        ai_trends = full_ai_data.groupby('Date').agg({
             'AI Overview': lambda x: (x.str.lower().isin(['yes', 'y', 'true']).sum() / len(x) * 100)
         }).reset_index()
         ai_trends.columns = ['Date', 'AI_Percentage']
         
-        if not ai_trends.empty:
+        if not ai_trends.empty and len(ai_trends) > 1:
             fig_ai_trends = px.line(
                 ai_trends,
                 x='Date',
@@ -907,6 +1038,8 @@ def show_ai_overview_analysis(df_processed, filtered_data):
             )
             fig_ai_trends.update_layout(height=400, font_family="Inter", yaxis_title="AI Detection Rate (%)")
             st.plotly_chart(fig_ai_trends, use_container_width=True)
+        else:
+            st.info("📊 Not enough data points to show trends over time.")
 
 def show_detailed_reports(df_processed, filtered_data):
     """Detailed Reports Page"""
