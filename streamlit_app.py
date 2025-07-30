@@ -711,7 +711,7 @@ def show_ai_overview_tracking(df_processed):
         for idx, row in keyword_ai_data.iterrows():
             date_str = row.get('DateTime', 'Unknown Date')
             if hasattr(date_str, 'strftime'):
-                date_display = date_str.strftime('%Y-%m-%d %H:%M')
+                date_display = date_str.strftime('%b %d, %Y at %I:%M:%S %p')
             else:
                 date_display = str(date_str)
             
@@ -782,7 +782,7 @@ def show_ai_overview_tracking(df_processed):
         for idx, row in keyword_ai_data.iterrows():
             date_str = row.get('DateTime', 'Unknown Date')
             if hasattr(date_str, 'strftime'):
-                date_display = date_str.strftime('%Y-%m-%d %H:%M')
+                date_display = date_str.strftime('%b %d, %Y at %I:%M:%S %p')
             else:
                 date_display = str(date_str)
             
@@ -835,11 +835,12 @@ def show_date_comparison(df_processed):
             st.markdown('<div class="stInfo">💡 This feature will be most useful when you have multiple data points.</div>', unsafe_allow_html=True)
             return
         
-        # Convert to readable format for display
+        # Convert to readable format for display - show actual times
         datetime_options = []
         for dt in available_datetimes:
             if hasattr(dt, 'strftime'):
-                display_time = dt.strftime('%Y-%m-%d %H:%M:%S')
+                # Format: "Jul 30, 2025 at 10:19:18 AM" 
+                display_time = dt.strftime('%b %d, %Y at %I:%M:%S %p')
                 datetime_options.append((display_time, dt))
         
         col1, col2 = st.columns(2)
@@ -1010,7 +1011,7 @@ def show_date_comparison(df_processed):
             st.markdown(f"""
             <div style="background: #1a1a2e; border-radius: 12px; padding: 1.5rem; border: 1px solid #667eea;">
                 <h3 style="text-align: center; color: #ffffff; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid #667eea;">
-                    📅 {selected_dt1_display}
+                    📅 {selected_dt1.strftime('%b %d, %Y at %I:%M %p')}
                 </h3>
             </div>
             """, unsafe_allow_html=True)
@@ -1047,7 +1048,7 @@ def show_date_comparison(df_processed):
             st.markdown(f"""
             <div style="background: #1a1a2e; border-radius: 12px; padding: 1.5rem; border: 1px solid #667eea;">
                 <h3 style="text-align: center; color: #ffffff; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid #667eea;">
-                    📅 {selected_dt2_display}
+                    📅 {selected_dt2.strftime('%b %d, %Y at %I:%M %p')}
                 </h3>
             </div>
             """, unsafe_allow_html=True)
@@ -1110,11 +1111,11 @@ def show_date_comparison(df_processed):
         
         with col1:
             pos1_display = str(int(recharge_pos1)) if isinstance(recharge_pos1, (int, float)) else "Not Ranking"
-            st.metric(f"Position at {selected_dt1_display}", pos1_display)
+            st.metric(f"Position at {selected_dt1.strftime('%b %d, %I:%M %p')}", pos1_display)
         
         with col2:
             pos2_display = str(int(recharge_pos2)) if isinstance(recharge_pos2, (int, float)) else "Not Ranking"
-            st.metric(f"Position at {selected_dt2_display}", pos2_display)
+            st.metric(f"Position at {selected_dt2.strftime('%b %d, %I:%M %p')}", pos2_display)
         
         with col3:
             if isinstance(recharge_pos1, (int, float)) and isinstance(recharge_pos2, (int, float)):
@@ -1134,7 +1135,7 @@ def show_date_comparison(df_processed):
         col_ai1, col_ai2 = st.columns(2)
         
         with col_ai1:
-            st.markdown(f'<h4 style="color: #ffffff;">📅 {selected_dt1_display}</h4>', unsafe_allow_html=True)
+            st.markdown(f'<h4 style="color: #ffffff;">📅 {selected_dt1.strftime("%b %d, %Y at %I:%M %p")}</h4>', unsafe_allow_html=True)
             
             if kw_data1 is not None:
                 ai_content1 = kw_data1.get('AI Overview', '')
@@ -1168,7 +1169,7 @@ def show_date_comparison(df_processed):
                 st.write("No data available for this time")
         
         with col_ai2:
-            st.markdown(f'<h4 style="color: #ffffff;">📅 {selected_dt2_display}</h4>', unsafe_allow_html=True)
+            st.markdown(f'<h4 style="color: #ffffff;">📅 {selected_dt2.strftime("%b %d, %Y at %I:%M %p")}</h4>', unsafe_allow_html=True)
             
             if kw_data2 is not None:
                 ai_content2 = kw_data2.get('AI Overview', '')
@@ -1298,9 +1299,42 @@ def main():
         if 'Market' not in df_processed.columns:
             df_processed['Market'] = df_processed['Location'].apply(get_country_flag)
     
-    # Convert datetime - FIXED: Handle various datetime formats
+    # Convert datetime - FIXED: Handle various datetime formats including "7/30/2025, 10:19:18 AM"
     if 'Date/Time' in df_processed.columns:
-        df_processed['DateTime'] = pd.to_datetime(df_processed['Date/Time'], errors='coerce')
+        # Try multiple datetime formats to handle user's specific format
+        def parse_datetime_flexible(date_str):
+            if pd.isna(date_str):
+                return pd.NaT
+            
+            date_str = str(date_str).strip()
+            
+            # List of possible formats to try
+            formats = [
+                '%m/%d/%Y, %I:%M:%S %p',  # 7/30/2025, 10:19:18 AM
+                '%m/%d/%Y %I:%M:%S %p',   # 7/30/2025 10:19:18 AM  
+                '%Y-%m-%d %H:%M:%S',      # 2025-07-30 10:19:18
+                '%Y-%m-%d %H:%M',         # 2025-07-30 10:19
+                '%Y-%m-%d',               # 2025-07-30
+                '%m/%d/%Y',               # 7/30/2025
+            ]
+            
+            for fmt in formats:
+                try:
+                    return pd.to_datetime(date_str, format=fmt)
+                except:
+                    continue
+            
+            # If all specific formats fail, let pandas try to infer
+            try:
+                return pd.to_datetime(date_str, infer_datetime_format=True)
+            except:
+                return pd.NaT
+        
+        df_processed['DateTime'] = df_processed['Date/Time'].apply(parse_datetime_flexible)
+        
+        # Remove any rows where datetime parsing failed
+        df_processed = df_processed.dropna(subset=['DateTime'])
+        
         latest_data = df_processed.sort_values('DateTime').groupby('Keyword_Clean').tail(1).reset_index(drop=True)
     else:
         latest_data = df_processed.groupby('Keyword_Clean').tail(1).reset_index(drop=True)
