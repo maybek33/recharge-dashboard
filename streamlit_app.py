@@ -607,8 +607,8 @@ def show_keyword_tracking(df_processed, filtered_data):
                 st.markdown('<div class="stInfo">No numeric position data available for this keyword.</div>', unsafe_allow_html=True)
 
 def show_date_comparison(df_processed):
-    """Date Comparison Page with visual SERP-style layout"""
-    st.markdown('<h2 class="section-header">📅 Date Comparison Analysis</h2>', unsafe_allow_html=True)
+    """Date Comparison Page with full SERP results comparison"""
+    st.markdown('<h2 class="section-header">📅 SERP Results Comparison</h2>', unsafe_allow_html=True)
     
     # Get available dates
     if 'DateTime' in df_processed.columns:
@@ -652,78 +652,112 @@ def show_date_comparison(df_processed):
             st.markdown('<div class="stError">❌ No data found for one or both selected dates.</div>', unsafe_allow_html=True)
             return
         
-        # Perform comparison
-        st.markdown(f'<h3 class="section-header">📊 SERP Comparison: {date1} vs {date2}</h3>', unsafe_allow_html=True)
+        # Keyword selector for SERP comparison
+        available_keywords = list(set(data1['Keyword'].unique()) | set(data2['Keyword'].unique()))
+        selected_keyword = st.selectbox(
+            "🔍 Select keyword to compare SERP results:",
+            available_keywords,
+            key="serp_comparison_keyword"
+        )
         
-        # Summary badges
-        all_keywords = set(data1['Keyword'].unique()) | set(data2['Keyword'].unique())
+        if not selected_keyword:
+            return
+        
+        # Get data for selected keyword
+        kw_data1 = data1[data1['Keyword'] == selected_keyword].iloc[0] if not data1[data1['Keyword'] == selected_keyword].empty else None
+        kw_data2 = data2[data2['Keyword'] == selected_keyword].iloc[0] if not data2[data2['Keyword'] == selected_keyword].empty else None
+        
+        if not kw_data1 and not kw_data2:
+            st.markdown('<div class="stError">❌ No data found for selected keyword on either date.</div>', unsafe_allow_html=True)
+            return
+        
+        st.markdown(f'<h3 class="section-header">🔍 SERP Comparison for "{selected_keyword}"</h3>', unsafe_allow_html=True)
+        
+        # Extract SERP results for both dates
+        def extract_serp_results(data_row):
+            if data_row is None:
+                return {}
+            
+            results = {}
+            position_columns = ['Position 1', 'Position 2', 'Position 3', 'Position 4', 'Position 5']
+            
+            for i, col in enumerate(position_columns, 1):
+                if col in data_row and pd.notna(data_row[col]) and data_row[col]:
+                    url = str(data_row[col])
+                    # Extract domain from URL for display
+                    try:
+                        from urllib.parse import urlparse
+                        domain = urlparse(url).netloc
+                        domain = domain.replace('www.', '') if domain.startswith('www.') else domain
+                    except:
+                        domain = url[:30] + "..." if len(url) > 30 else url
+                    
+                    results[i] = {
+                        'url': url,
+                        'domain': domain,
+                        'is_recharge': 'recharge.com' in url.lower()
+                    }
+            
+            return results
+        
+        serp1 = extract_serp_results(kw_data1)
+        serp2 = extract_serp_results(kw_data2)
         
         # Calculate changes
+        all_urls = set()
+        if serp1:
+            all_urls.update(result['url'] for result in serp1.values())
+        if serp2:
+            all_urls.update(result['url'] for result in serp2.values())
+        
+        # Track URL movements
+        url_changes = {}
         improved_count = 0
         declined_count = 0
         new_count = 0
         lost_count = 0
         
-        comparison_data = []
-        for keyword in all_keywords:
-            kw_data1 = data1[data1['Keyword'] == keyword]
-            kw_data2 = data2[data2['Keyword'] == keyword]
+        for url in all_urls:
+            pos1 = None
+            pos2 = None
             
-            pos1 = kw_data1['Recharge Position'].iloc[0] if not kw_data1.empty else None
-            pos2 = kw_data2['Recharge Position'].iloc[0] if not kw_data2.empty else None
+            # Find positions
+            for pos, result in serp1.items():
+                if result['url'] == url:
+                    pos1 = pos
+                    break
             
-            market = kw_data1['Market'].iloc[0] if not kw_data1.empty else (kw_data2['Market'].iloc[0] if not kw_data2.empty else 'Unknown')
+            for pos, result in serp2.items():
+                if result['url'] == url:
+                    pos2 = pos
+                    break
             
-            # Get AI Overview and Full Results Data
-            ai1 = kw_data1['AI Overview'].iloc[0] if not kw_data1.empty and 'AI Overview' in kw_data1.columns else 'No'
-            ai2 = kw_data2['AI Overview'].iloc[0] if not kw_data2.empty and 'AI Overview' in kw_data2.columns else 'No'
-            
-            aio_links1 = kw_data1['AIO Links'].iloc[0] if not kw_data1.empty and 'AIO Links' in kw_data1.columns else ''
-            aio_links2 = kw_data2['AIO Links'].iloc[0] if not kw_data2.empty and 'AIO Links' in kw_data2.columns else ''
-            
-            full_results1 = kw_data1['Full Results Data'].iloc[0] if not kw_data1.empty and 'Full Results Data' in kw_data1.columns else ''
-            full_results2 = kw_data2['Full Results Data'].iloc[0] if not kw_data2.empty and 'Full Results Data' in kw_data2.columns else ''
-            
-            change_val, change_desc = calculate_position_change(pos1, pos2)
-            
-            if change_val == float('inf'):
+            # Determine change type
+            if pos1 is None and pos2 is not None:
+                change_type = "new"
                 new_count += 1
-                change_type = "🆕 NEW"
-                change_color = "#3b82f6"
-            elif change_val == float('-inf'):
+            elif pos1 is not None and pos2 is None:
+                change_type = "lost"
                 lost_count += 1
-                change_type = "❌ LOST"
-                change_color = "#f59e0b"
-            elif change_val > 0:
-                improved_count += 1
-                change_type = f"📈 +{change_val}"
-                change_color = "#10b981"
-            elif change_val < 0:
-                declined_count += 1
-                change_type = f"📉 {change_val}"
-                change_color = "#ef4444"
+            elif pos1 is not None and pos2 is not None:
+                if pos1 > pos2:  # Lower position number = better ranking
+                    change_type = "improved"
+                    improved_count += 1
+                elif pos1 < pos2:
+                    change_type = "declined"
+                    declined_count += 1
+                else:
+                    change_type = "stable"
             else:
-                change_type = "➡️ STABLE"
-                change_color = "#6b7280"
+                change_type = "stable"
             
-            comparison_data.append({
-                'keyword': keyword,
-                'market': market,
+            url_changes[url] = {
                 'pos1': pos1,
                 'pos2': pos2,
-                'change_val': change_val,
-                'change_desc': change_desc,
-                'change_type': change_type,
-                'change_color': change_color,
-                'ai1': ai1,
-                'ai2': ai2,
-                'aio_links1': aio_links1,
-                'aio_links2': aio_links2,
-                'full_results1': full_results1,
-                'full_results2': full_results2
-            })
+                'change_type': change_type
+            }
         
-        # Summary badges using Streamlit columns
+        # Summary badges
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
@@ -756,7 +790,7 @@ def show_date_comparison(df_processed):
         
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # Side-by-side comparison using Streamlit columns
+        # Side-by-side SERP comparison
         col_left, col_right = st.columns(2)
         
         with col_left:
@@ -768,26 +802,33 @@ def show_date_comparison(df_processed):
             </div>
             """, unsafe_allow_html=True)
             
-            # Sort by position for date1
-            date1_sorted = sorted(comparison_data, key=lambda x: x['pos1'] if isinstance(x['pos1'], (int, float)) else 999)
-            
-            for item in date1_sorted:
-                pos1 = item['pos1']
-                pos_display = str(int(pos1)) if isinstance(pos1, (int, float)) else "NR"
-                
-                # Create keyword card
-                st.markdown(f"""
-                <div style="background: #16213e; border-radius: 8px; padding: 1rem; margin: 0.5rem 0; border-left: 4px solid #667eea; display: flex; align-items: center;">
-                    <div style="background: #667eea; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 1rem; font-size: 14px;">
-                        {pos_display}
-                    </div>
-                    <div style="flex: 1;">
-                        <div style="color: #ffffff; font-weight: 600; margin-bottom: 0.3rem;">{item['keyword']}</div>
-                        <div style="color: #a0a9c0; font-size: 0.9rem;">{item['market']}</div>
-                        <div style="color: #a0a9c0; font-size: 0.8rem;">AI: {"🤖 Yes" if str(item['ai1']).lower() in ['yes', 'y', 'true'] else "❌ No"}</div>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+            # Show SERP results for date1
+            if serp1:
+                for position in range(1, 6):
+                    if position in serp1:
+                        result = serp1[position]
+                        border_color = "#f59e0b" if result['is_recharge'] else "#667eea"
+                        
+                        st.markdown(f"""
+                        <div style="background: #16213e; border-radius: 8px; padding: 1rem; margin: 0.5rem 0; border-left: 4px solid {border_color}; display: flex; align-items: center;">
+                            <div style="background: {border_color}; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 1rem; font-size: 14px;">
+                                {position}
+                            </div>
+                            <div style="flex: 1;">
+                                <div style="color: #ffffff; font-weight: 600; margin-bottom: 0.3rem; font-size: 0.9rem;">{result['domain']}</div>
+                                <div style="color: #a0a9c0; font-size: 0.8rem; word-break: break-all;">{result['url'][:60]}{"..." if len(result['url']) > 60 else ""}</div>
+                                {'<div style="color: #f59e0b; font-size: 0.8rem; font-weight: bold;">🔋 Recharge.com</div>' if result['is_recharge'] else ''}
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"""
+                        <div style="background: #16213e; border-radius: 8px; padding: 1rem; margin: 0.5rem 0; border-left: 4px solid #6b7280; opacity: 0.5;">
+                            <div style="color: #6b7280; text-align: center;">Position {position} - No data</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+            else:
+                st.markdown('<div style="color: #6b7280; text-align: center; padding: 2rem;">No SERP data available</div>', unsafe_allow_html=True)
         
         with col_right:
             st.markdown(f"""
@@ -798,141 +839,193 @@ def show_date_comparison(df_processed):
             </div>
             """, unsafe_allow_html=True)
             
-            # Sort by position for date2
-            date2_sorted = sorted(comparison_data, key=lambda x: x['pos2'] if isinstance(x['pos2'], (int, float)) else 999)
-            
-            for item in date2_sorted:
-                pos2 = item['pos2']
-                pos_display = str(int(pos2)) if isinstance(pos2, (int, float)) else "NR"
-                
-                # Determine border color based on change
-                if item['change_val'] == float('inf'):
-                    border_color = "#3b82f6"
-                elif item['change_val'] == float('-inf'):
-                    border_color = "#f59e0b"
-                elif item['change_val'] > 0:
-                    border_color = "#10b981"
-                elif item['change_val'] < 0:
-                    border_color = "#ef4444"
-                else:
-                    border_color = "#667eea"
-                
-                # Create keyword card with change indicator
-                st.markdown(f"""
-                <div style="background: #16213e; border-radius: 8px; padding: 1rem; margin: 0.5rem 0; border-left: 4px solid {border_color}; display: flex; align-items: center;">
-                    <div style="background: {border_color}; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 1rem; font-size: 14px;">
-                        {pos_display}
-                    </div>
-                    <div style="flex: 1;">
-                        <div style="color: #ffffff; font-weight: 600; margin-bottom: 0.3rem;">{item['keyword']}</div>
-                        <div style="color: #a0a9c0; font-size: 0.9rem;">{item['market']}</div>
-                        <div style="color: #a0a9c0; font-size: 0.8rem;">AI: {"🤖 Yes" if str(item['ai2']).lower() in ['yes', 'y', 'true'] else "❌ No"}</div>
-                    </div>
-                    <div style="background: {item['change_color']}; color: white; padding: 0.3rem 0.8rem; border-radius: 12px; font-size: 0.8rem; font-weight: bold;">
-                        {item['change_type']}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+            # Show SERP results for date2
+            if serp2:
+                for position in range(1, 6):
+                    if position in serp2:
+                        result = serp2[position]
+                        url = result['url']
+                        change_info = url_changes.get(url, {})
+                        change_type = change_info.get('change_type', 'stable')
+                        
+                        # Determine colors and change indicator
+                        if change_type == "improved":
+                            border_color = "#10b981"
+                            change_text = f"📈 +{change_info['pos1'] - position}" if change_info.get('pos1') else "📈 UP"
+                        elif change_type == "declined":
+                            border_color = "#ef4444"
+                            change_text = f"📉 -{position - change_info['pos1']}" if change_info.get('pos1') else "📉 DOWN"
+                        elif change_type == "new":
+                            border_color = "#3b82f6"
+                            change_text = "🆕 NEW"
+                        elif change_type == "lost":
+                            border_color = "#f59e0b"
+                            change_text = "❌ LOST"
+                        else:
+                            border_color = "#f59e0b" if result['is_recharge'] else "#667eea"
+                            change_text = ""
+                        
+                        st.markdown(f"""
+                        <div style="background: #16213e; border-radius: 8px; padding: 1rem; margin: 0.5rem 0; border-left: 4px solid {border_color}; display: flex; align-items: center;">
+                            <div style="background: {border_color}; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 1rem; font-size: 14px;">
+                                {position}
+                            </div>
+                            <div style="flex: 1;">
+                                <div style="color: #ffffff; font-weight: 600; margin-bottom: 0.3rem; font-size: 0.9rem;">{result['domain']}</div>
+                                <div style="color: #a0a9c0; font-size: 0.8rem; word-break: break-all;">{result['url'][:60]}{"..." if len(result['url']) > 60 else ""}</div>
+                                {'<div style="color: #f59e0b; font-size: 0.8rem; font-weight: bold;">🔋 Recharge.com</div>' if result['is_recharge'] else ''}
+                            </div>
+                            {f'<div style="background: {border_color}; color: white; padding: 0.3rem 0.8rem; border-radius: 12px; font-size: 0.8rem; font-weight: bold; margin-left: 0.5rem;">{change_text}</div>' if change_text else ''}
+                        </div>
+                        """, unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"""
+                        <div style="background: #16213e; border-radius: 8px; padding: 1rem; margin: 0.5rem 0; border-left: 4px solid #6b7280; opacity: 0.5;">
+                            <div style="color: #6b7280; text-align: center;">Position {position} - No data</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+            else:
+                st.markdown('<div style="color: #6b7280; text-align: center; padding: 2rem;">No SERP data available</div>', unsafe_allow_html=True)
         
-        # Detailed Content Sections
+        # Recharge.com Position Analysis
+        st.markdown('<h3 class="section-header">🔋 Recharge.com Position Analysis</h3>', unsafe_allow_html=True)
+        
+        recharge_pos1 = kw_data1['Recharge Position'] if kw_data1 is not None and 'Recharge Position' in kw_data1 else None
+        recharge_pos2 = kw_data2['Recharge Position'] if kw_data2 is not None and 'Recharge Position' in kw_data2 else None
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            pos1_display = str(int(recharge_pos1)) if isinstance(recharge_pos1, (int, float)) else "Not Ranking"
+            st.metric(f"Position on {date1}", pos1_display)
+        
+        with col2:
+            pos2_display = str(int(recharge_pos2)) if isinstance(recharge_pos2, (int, float)) else "Not Ranking"
+            st.metric(f"Position on {date2}", pos2_display)
+        
+        with col3:
+            if isinstance(recharge_pos1, (int, float)) and isinstance(recharge_pos2, (int, float)):
+                change = recharge_pos1 - recharge_pos2  # Positive = improvement
+                if change > 0:
+                    st.metric("Change", f"📈 +{change}", delta=f"Improved by {change} positions")
+                elif change < 0:
+                    st.metric("Change", f"📉 {change}", delta=f"Declined by {abs(change)} positions")
+                else:
+                    st.metric("Change", "➡️ No Change", delta="Position maintained")
+            else:
+                st.metric("Change", "❓ Unknown", delta="Missing data")
+        
+        # AI Overview and Full Results Data Section
         st.markdown('<h3 class="section-header">🔍 Detailed Content Analysis</h3>', unsafe_allow_html=True)
         
-        # Keyword selector for detailed view
-        keyword_options = [item['keyword'] for item in comparison_data]
-        selected_keyword_detail = st.selectbox(
-            "Select keyword to view detailed content:",
-            keyword_options,
-            key="detailed_keyword_selector"
-        )
+        col_ai1, col_ai2 = st.columns(2)
         
-        if selected_keyword_detail:
-            # Find the selected keyword data
-            selected_item = next(item for item in comparison_data if item['keyword'] == selected_keyword_detail)
+        with col_ai1:
+            st.markdown(f'<h4 style="color: #ffffff;">📅 {date1}</h4>', unsafe_allow_html=True)
             
-            # AI Overview Content Section
-            st.markdown('<h4 style="color: #ffffff;">🤖 AI Overview Content</h4>', unsafe_allow_html=True)
-            
-            col_ai1, col_ai2 = st.columns(2)
-            
-            with col_ai1:
-                st.markdown(f'<h5 style="color: #ffffff;">📅 {date1}</h5>', unsafe_allow_html=True)
-                
-                ai_status1 = "🤖 Yes" if str(selected_item['ai1']).lower() in ['yes', 'y', 'true'] else "❌ No"
+            if kw_data1 is not None:
+                ai_status1 = "🤖 Yes" if str(kw_data1.get('AI Overview', 'No')).lower() in ['yes', 'y', 'true'] else "❌ No"
                 st.markdown(f'<p style="color: #a0a9c0;">AI Overview: {ai_status1}</p>', unsafe_allow_html=True)
                 
-                if str(selected_item['ai1']).lower() in ['yes', 'y', 'true'] and selected_item['aio_links1']:
+                if str(kw_data1.get('AI Overview', 'No')).lower() in ['yes', 'y', 'true'] and 'AIO Links' in kw_data1:
                     with st.expander(f"🔗 AIO Links - {date1}", expanded=False):
-                        if pd.notna(selected_item['aio_links1']) and selected_item['aio_links1']:
-                            aio_links = str(selected_item['aio_links1']).split('\n')
-                            for i, link in enumerate(aio_links, 1):
+                        aio_links = kw_data1.get('AIO Links', '')
+                        if pd.notna(aio_links) and aio_links:
+                            for i, link in enumerate(str(aio_links).split('\n'), 1):
                                 if link.strip():
                                     st.markdown(f"**{i}.** [{link}]({link})")
                         else:
                             st.write("No AIO links available")
                 
-                if selected_item['full_results1']:
+                if 'Full Results Data' in kw_data1:
                     with st.expander(f"📄 Full Results Data - {date1}", expanded=False):
-                        if pd.notna(selected_item['full_results1']) and selected_item['full_results1']:
+                        full_results = kw_data1.get('Full Results Data', '')
+                        if pd.notna(full_results) and full_results:
                             st.text_area(
                                 f"Complete search results for {date1}",
-                                selected_item['full_results1'],
+                                full_results,
                                 height=300,
-                                key=f"full_results_{date1}_{selected_keyword_detail}"
+                                key=f"full_results_{date1}_{selected_keyword}"
                             )
                         else:
                             st.write("No full results data available")
+            else:
+                st.write("No data available for this date")
+        
+        with col_ai2:
+            st.markdown(f'<h4 style="color: #ffffff;">📅 {date2}</h4>', unsafe_allow_html=True)
             
-            with col_ai2:
-                st.markdown(f'<h5 style="color: #ffffff;">📅 {date2}</h5>', unsafe_allow_html=True)
-                
-                ai_status2 = "🤖 Yes" if str(selected_item['ai2']).lower() in ['yes', 'y', 'true'] else "❌ No"
+            if kw_data2 is not None:
+                ai_status2 = "🤖 Yes" if str(kw_data2.get('AI Overview', 'No')).lower() in ['yes', 'y', 'true'] else "❌ No"
                 st.markdown(f'<p style="color: #a0a9c0;">AI Overview: {ai_status2}</p>', unsafe_allow_html=True)
                 
-                if str(selected_item['ai2']).lower() in ['yes', 'y', 'true'] and selected_item['aio_links2']:
+                if str(kw_data2.get('AI Overview', 'No')).lower() in ['yes', 'y', 'true'] and 'AIO Links' in kw_data2:
                     with st.expander(f"🔗 AIO Links - {date2}", expanded=False):
-                        if pd.notna(selected_item['aio_links2']) and selected_item['aio_links2']:
-                            aio_links = str(selected_item['aio_links2']).split('\n')
-                            for i, link in enumerate(aio_links, 1):
+                        aio_links = kw_data2.get('AIO Links', '')
+                        if pd.notna(aio_links) and aio_links:
+                            for i, link in enumerate(str(aio_links).split('\n'), 1):
                                 if link.strip():
                                     st.markdown(f"**{i}.** [{link}]({link})")
                         else:
                             st.write("No AIO links available")
                 
-                if selected_item['full_results2']:
+                if 'Full Results Data' in kw_data2:
                     with st.expander(f"📄 Full Results Data - {date2}", expanded=False):
-                        if pd.notna(selected_item['full_results2']) and selected_item['full_results2']:
+                        full_results = kw_data2.get('Full Results Data', '')
+                        if pd.notna(full_results) and full_results:
                             st.text_area(
                                 f"Complete search results for {date2}",
-                                selected_item['full_results2'],
+                                full_results,
                                 height=300,
-                                key=f"full_results_{date2}_{selected_keyword_detail}"
+                                key=f"full_results_{date2}_{selected_keyword}"
                             )
                         else:
                             st.write("No full results data available")
+            else:
+                st.write("No data available for this date")
         
-        # Export comparison results
-        st.markdown('<h3 class="section-header">📥 Export Results</h3>', unsafe_allow_html=True)
+        # Export functionality
+        st.markdown('<h3 class="section-header">📥 Export SERP Comparison</h3>', unsafe_allow_html=True)
         
-        # Create DataFrame for export
+        # Create detailed export data
         export_data = []
-        for item in comparison_data:
-            export_data.append({
-                'Keyword': item['keyword'],
-                'Market': item['market'],
-                f'Position {date1}': item['pos1'],
-                f'Position {date2}': item['pos2'],
-                'Change': item['change_desc'],
-                f'AI Overview {date1}': item['ai1'],
-                f'AI Overview {date2}': item['ai2']
-            })
+        
+        # Export SERP positions
+        for position in range(1, 6):
+            row = {'Position': position}
+            
+            if position in serp1:
+                row[f'URL_{date1}'] = serp1[position]['url']
+                row[f'Domain_{date1}'] = serp1[position]['domain']
+            else:
+                row[f'URL_{date1}'] = ""
+                row[f'Domain_{date1}'] = ""
+            
+            if position in serp2:
+                row[f'URL_{date2}'] = serp2[position]['url']
+                row[f'Domain_{date2}'] = serp2[position]['domain']
+            else:
+                row[f'URL_{date2}'] = ""
+                row[f'Domain_{date2}'] = ""
+            
+            export_data.append(row)
+        
+        # Add Recharge position data
+        export_data.append({
+            'Position': 'Recharge.com',
+            f'URL_{date1}': f'Position {recharge_pos1}' if recharge_pos1 else 'Not Ranking',
+            f'Domain_{date1}': 'recharge.com',
+            f'URL_{date2}': f'Position {recharge_pos2}' if recharge_pos2 else 'Not Ranking',
+            f'Domain_{date2}': 'recharge.com'
+        })
         
         export_df = pd.DataFrame(export_data)
         csv_data = export_df.to_csv(index=False)
         
         st.download_button(
-            label="📥 Download Comparison Results as CSV",
+            label="📥 Download SERP Comparison as CSV",
             data=csv_data,
-            file_name=f"ranking_comparison_{date1}_vs_{date2}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            file_name=f"serp_comparison_{selected_keyword}_{date1}_vs_{date2}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
             mime="text/csv"
         )
         
