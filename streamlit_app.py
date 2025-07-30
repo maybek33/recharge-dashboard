@@ -271,8 +271,8 @@ def get_sample_data():
                 'Keyword': keyword,
                 'Recharge Position': position,
                 'Position Change': change,
-                'AI Overview': 'Yes' if ai_present else 'No',
-                'AIO Links': f"Sample AI Overview content for {keyword}" if ai_present else None,
+                'AI Overview': f"Sample AI Overview content for {keyword}" if ai_present else None,
+                'AIO Links': f"Sample AI Overview links for {keyword}" if ai_present else None,
                 'Full Results Data': f"Sample SERP data for {keyword}",
                 'Sheet_Name': f'{keyword.replace(" ", "_")}_{lang}_{loc}',
                 'Market': market
@@ -324,22 +324,29 @@ def get_position_status(position):
     except:
         return str(position), '#6b7280'
 
-def extract_aio_links(aio_content):
-    """Extract links from AIO content"""
-    if pd.isna(aio_content) or not aio_content or str(aio_content) == '#ERROR!':
+def has_ai_overview(ai_content):
+    """Check if AI Overview content exists"""
+    if pd.isna(ai_content) or not ai_content or str(ai_content) == '#ERROR!' or str(ai_content).strip() == '':
+        return False
+    return True
+
+def extract_aio_links(aio_links_content):
+    """Extract links from AIO Links content"""
+    if pd.isna(aio_links_content) or not aio_links_content or str(aio_links_content) == '#ERROR!':
         return []
     
-    content = str(aio_content)
+    content = str(aio_links_content)
     links = []
     
-    # Look for URLs in the content
+    # Look for numbered links (1. https://...)
     import re
-    url_pattern = r'https?://[^\s\n]+'
-    found_urls = re.findall(url_pattern, content)
+    # Pattern for numbered links like "1. https://... - Title"
+    numbered_pattern = r'\d+\.\s+(https?://[^\s]+)'
+    found_urls = re.findall(numbered_pattern, content)
     
     for url in found_urls:
-        # Clean up URL (remove trailing punctuation)
-        clean_url = url.rstrip('.,;:)')
+        # Clean up URL (remove trailing punctuation and fragments)
+        clean_url = url.split('#')[0].rstrip('.,;:)')
         if clean_url not in links:
             links.append(clean_url)
     
@@ -370,8 +377,9 @@ def show_dashboard_overview(latest_data, filtered_data):
             )
         ])
         
+        # FIXED: Check for AI Overview content existence instead of Yes/No
         ai_count = len(latest_data[
-            latest_data['AI Overview'].str.lower().isin(['yes', 'y', 'true'])
+            latest_data['AI Overview'].apply(has_ai_overview)
         ]) if 'AI Overview' in latest_data.columns else 0
         
         col1, col2, col3, col4 = st.columns(4)
@@ -419,9 +427,10 @@ def show_dashboard_overview(latest_data, filtered_data):
         if 'Position Change' in display_data.columns:
             display_data['Change_Display'] = display_data['Position Change'].fillna('Unknown')
         
+        # FIXED: Check AI Overview content instead of Yes/No
         if 'AI Overview' in display_data.columns:
             display_data['AI_Display'] = display_data['AI Overview'].apply(
-                lambda x: '🤖 Yes' if str(x).lower() in ['yes', 'y', 'true'] else '❌ No'
+                lambda x: '🤖 Yes' if has_ai_overview(x) else '❌ No'
             )
         
         # Select columns for display
@@ -559,8 +568,8 @@ def show_keyword_tracking(df_processed, filtered_data):
                 st.metric("Market", market)
             
             with col4:
-                ai_status = latest_row.get('AI Overview', 'Unknown')
-                ai_display = '🤖 Yes' if str(ai_status).lower() in ['yes', 'y', 'true'] else '❌ No'
+                ai_status = latest_row.get('AI Overview', '')
+                ai_display = '🤖 Yes' if has_ai_overview(ai_status) else '❌ No'
                 st.metric("AI Overview", ai_display)
         
         # Position tracking chart
@@ -609,10 +618,10 @@ def show_ai_overview_tracking(df_processed):
     """AI Overview Tracking Page"""
     st.markdown('<h2 class="section-header">🤖 AI Overview Tracking</h2>', unsafe_allow_html=True)
     
-    # Filter data to only show records with AI Overview = Yes
+    # Filter data to only show records with AI Overview content
     if 'AI Overview' in df_processed.columns:
         ai_data = df_processed[
-            df_processed['AI Overview'].str.lower().isin(['yes', 'y', 'true'])
+            df_processed['AI Overview'].apply(has_ai_overview)
         ].copy()
     else:
         st.markdown('<div class="stError">❌ No "AI Overview" column found in data</div>', unsafe_allow_html=True)
@@ -713,8 +722,8 @@ def show_ai_overview_tracking(df_processed):
                 
                 with col_content:
                     st.markdown("**🤖 AI Overview Content:**")
-                    aio_content = row.get('AIO Links', '')
-                    if pd.notna(aio_content) and aio_content and str(aio_content) != '#ERROR!':
+                    aio_content = row.get('AI Overview', '')
+                    if has_ai_overview(aio_content):
                         st.text_area(
                             f"AI Overview content",
                             aio_content,
@@ -730,7 +739,13 @@ def show_ai_overview_tracking(df_processed):
                     links = extract_aio_links(row.get('AIO Links', ''))
                     if links:
                         for i, link in enumerate(links, 1):
-                            st.markdown(f"{i}. [{link}]({link})")
+                            # Extract domain for display
+                            try:
+                                from urllib.parse import urlparse
+                                domain = urlparse(link).netloc.replace('www.', '')
+                            except:
+                                domain = link[:30] + "..." if len(link) > 30 else link
+                            st.markdown(f"{i}. [{domain}]({link})")
                     else:
                         st.write("No links found")
                 
@@ -767,16 +782,22 @@ def show_ai_overview_tracking(df_processed):
         for idx, row in keyword_ai_data.iterrows():
             date_str = row.get('DateTime', 'Unknown Date')
             if hasattr(date_str, 'strftime'):
-                date_display = date_str.strftime('%Y-%m-%d')
+                date_display = date_str.strftime('%Y-%m-%d %H:%M')
             else:
                 date_display = str(date_str)
             
             links = extract_aio_links(row.get('AIO Links', ''))
             for link in links:
+                try:
+                    from urllib.parse import urlparse
+                    domain = urlparse(link).netloc.replace('www.', '')
+                except:
+                    domain = link[:50]
+                    
                 all_links.append({
                     'Date': date_display,
                     'URL': link,
-                    'Domain': link.split('/')[2] if '://' in link else link[:50]
+                    'Domain': domain
                 })
         
         if all_links:
@@ -804,56 +825,63 @@ def show_date_comparison(df_processed):
     if not selected_keyword:
         return
     
-    # Get available dates for selected keyword only
+    # Get available datetimes for selected keyword only - FIXED: Show actual times, not just dates
     if 'DateTime' in df_processed.columns:
         keyword_data = df_processed[df_processed['Keyword'] == selected_keyword].copy()
-        keyword_data['Date'] = keyword_data['DateTime'].dt.date
-        available_dates = sorted(keyword_data['Date'].unique())
+        available_datetimes = sorted(keyword_data['DateTime'].dropna().unique())
         
-        if len(available_dates) < 2:
-            st.markdown('<div class="stWarning">⚠️ Need at least 2 different dates for comparison for this keyword.</div>', unsafe_allow_html=True)
-            st.markdown('<div class="stInfo">💡 This feature will be most useful when you have historical data spanning multiple days/weeks.</div>', unsafe_allow_html=True)
+        if len(available_datetimes) < 2:
+            st.markdown('<div class="stWarning">⚠️ Need at least 2 different times for comparison for this keyword.</div>', unsafe_allow_html=True)
+            st.markdown('<div class="stInfo">💡 This feature will be most useful when you have multiple data points.</div>', unsafe_allow_html=True)
             return
+        
+        # Convert to readable format for display
+        datetime_options = []
+        for dt in available_datetimes:
+            if hasattr(dt, 'strftime'):
+                display_time = dt.strftime('%Y-%m-%d %H:%M:%S')
+                datetime_options.append((display_time, dt))
         
         col1, col2 = st.columns(2)
         
         with col1:
-            date1 = st.date_input(
-                "📅 Select First Date (Baseline)",
-                value=available_dates[0],
-                min_value=available_dates[0],
-                max_value=available_dates[-1],
-                key="date1"
+            selected_dt1_display = st.selectbox(
+                "📅 Select First Time (Baseline)",
+                options=[opt[0] for opt in datetime_options],
+                index=0,
+                key="datetime1"
             )
+            # Get the actual datetime object
+            selected_dt1 = next(opt[1] for opt in datetime_options if opt[0] == selected_dt1_display)
         
         with col2:
-            date2 = st.date_input(
-                "📅 Select Second Date (Comparison)",
-                value=available_dates[-1],
-                min_value=available_dates[0],
-                max_value=available_dates[-1],
-                key="date2"
+            selected_dt2_display = st.selectbox(
+                "📅 Select Second Time (Comparison)",
+                options=[opt[0] for opt in datetime_options],
+                index=len(datetime_options)-1,
+                key="datetime2"
             )
+            # Get the actual datetime object
+            selected_dt2 = next(opt[1] for opt in datetime_options if opt[0] == selected_dt2_display)
         
-        if date1 == date2:
-            st.markdown('<div class="stWarning">⚠️ Please select two different dates for comparison.</div>', unsafe_allow_html=True)
+        if selected_dt1 == selected_dt2:
+            st.markdown('<div class="stWarning">⚠️ Please select two different times for comparison.</div>', unsafe_allow_html=True)
             return
         
-        # Filter data for selected dates and keyword
-        data1 = keyword_data[keyword_data['Date'] == date1].copy()
-        data2 = keyword_data[keyword_data['Date'] == date2].copy()
+        # Filter data for selected datetimes and keyword
+        data1 = keyword_data[keyword_data['DateTime'] == selected_dt1].copy()
+        data2 = keyword_data[keyword_data['DateTime'] == selected_dt2].copy()
         
         if data1.empty or data2.empty:
-            st.markdown('<div class="stError">❌ No data found for one or both selected dates for this keyword.</div>', unsafe_allow_html=True)
+            st.markdown('<div class="stError">❌ No data found for one or both selected times for this keyword.</div>', unsafe_allow_html=True)
             return
         
-        # Get data for selected keyword - FIXED: Proper boolean evaluation
+        # Get data for selected keyword
         kw_data1 = data1.iloc[0] if not data1.empty else None
         kw_data2 = data2.iloc[0] if not data2.empty else None
         
-        # FIXED: Use proper None checks instead of pandas boolean evaluation
         if kw_data1 is None and kw_data2 is None:
-            st.markdown('<div class="stError">❌ No data found for selected keyword on either date.</div>', unsafe_allow_html=True)
+            st.markdown('<div class="stError">❌ No data found for selected keyword at either time.</div>', unsafe_allow_html=True)
             return
         
         st.markdown(f'<h3 class="section-header">🔍 SERP Comparison for "{selected_keyword}"</h3>', unsafe_allow_html=True)
@@ -982,12 +1010,12 @@ def show_date_comparison(df_processed):
             st.markdown(f"""
             <div style="background: #1a1a2e; border-radius: 12px; padding: 1.5rem; border: 1px solid #667eea;">
                 <h3 style="text-align: center; color: #ffffff; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid #667eea;">
-                    📅 {date1}
+                    📅 {selected_dt1_display}
                 </h3>
             </div>
             """, unsafe_allow_html=True)
             
-            # Show SERP results for date1
+            # Show SERP results for datetime1
             if serp1:
                 for position in range(1, 6):
                     if position in serp1:
@@ -1019,12 +1047,12 @@ def show_date_comparison(df_processed):
             st.markdown(f"""
             <div style="background: #1a1a2e; border-radius: 12px; padding: 1.5rem; border: 1px solid #667eea;">
                 <h3 style="text-align: center; color: #ffffff; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid #667eea;">
-                    📅 {date2}
+                    📅 {selected_dt2_display}
                 </h3>
             </div>
             """, unsafe_allow_html=True)
             
-            # Show SERP results for date2
+            # Show SERP results for datetime2
             if serp2:
                 for position in range(1, 6):
                     if position in serp2:
@@ -1082,11 +1110,11 @@ def show_date_comparison(df_processed):
         
         with col1:
             pos1_display = str(int(recharge_pos1)) if isinstance(recharge_pos1, (int, float)) else "Not Ranking"
-            st.metric(f"Position on {date1}", pos1_display)
+            st.metric(f"Position at {selected_dt1_display}", pos1_display)
         
         with col2:
             pos2_display = str(int(recharge_pos2)) if isinstance(recharge_pos2, (int, float)) else "Not Ranking"
-            st.metric(f"Position on {date2}", pos2_display)
+            st.metric(f"Position at {selected_dt2_display}", pos2_display)
         
         with col3:
             if isinstance(recharge_pos1, (int, float)) and isinstance(recharge_pos2, (int, float)):
@@ -1106,76 +1134,72 @@ def show_date_comparison(df_processed):
         col_ai1, col_ai2 = st.columns(2)
         
         with col_ai1:
-            st.markdown(f'<h4 style="color: #ffffff;">📅 {date1}</h4>', unsafe_allow_html=True)
+            st.markdown(f'<h4 style="color: #ffffff;">📅 {selected_dt1_display}</h4>', unsafe_allow_html=True)
             
             if kw_data1 is not None:
-                ai_status1 = "🤖 Yes" if str(kw_data1.get('AI Overview', 'No')).lower() in ['yes', 'y', 'true'] else "❌ No"
+                ai_content1 = kw_data1.get('AI Overview', '')
+                ai_status1 = "🤖 Yes" if has_ai_overview(ai_content1) else "❌ No"
                 st.markdown(f'<p style="color: #a0a9c0;">AI Overview: {ai_status1}</p>', unsafe_allow_html=True)
                 
-                # FIXED: Use 'AIO Links' column which contains the actual AI Overview content
-                if str(kw_data1.get('AI Overview', 'No')).lower() in ['yes', 'y', 'true'] and 'AIO Links' in kw_data1:
-                    with st.expander(f"🤖 AI Overview Content - {date1}", expanded=False):
-                        aio_content = kw_data1.get('AIO Links', '')
-                        if pd.notna(aio_content) and aio_content and str(aio_content) != '#ERROR!':
-                            st.text_area(
-                                f"AI Overview content for {date1}",
-                                aio_content,
-                                height=200,
-                                key=f"aio_content_{date1}_{selected_keyword}"
-                            )
-                        else:
-                            st.write("No AI Overview content available")
+                if has_ai_overview(ai_content1):
+                    with st.expander(f"🤖 AI Overview Content - {selected_dt1_display}", expanded=False):
+                        st.text_area(
+                            f"AI Overview content",
+                            ai_content1,
+                            height=200,
+                            key=f"aio_content_1_{selected_keyword}",
+                            label_visibility="collapsed"
+                        )
                 
                 if 'Full Results Data' in kw_data1:
-                    with st.expander(f"📄 Full Results Data - {date1}", expanded=False):
+                    with st.expander(f"📄 Full Results Data - {selected_dt1_display}", expanded=False):
                         full_results = kw_data1.get('Full Results Data', '')
                         if pd.notna(full_results) and full_results and str(full_results) != '#ERROR!':
                             st.text_area(
-                                f"Complete search results for {date1}",
+                                f"Complete search results",
                                 full_results,
                                 height=300,
-                                key=f"full_results_{date1}_{selected_keyword}"
+                                key=f"full_results_1_{selected_keyword}",
+                                label_visibility="collapsed"
                             )
                         else:
                             st.write("No full results data available")
             else:
-                st.write("No data available for this date")
+                st.write("No data available for this time")
         
         with col_ai2:
-            st.markdown(f'<h4 style="color: #ffffff;">📅 {date2}</h4>', unsafe_allow_html=True)
+            st.markdown(f'<h4 style="color: #ffffff;">📅 {selected_dt2_display}</h4>', unsafe_allow_html=True)
             
             if kw_data2 is not None:
-                ai_status2 = "🤖 Yes" if str(kw_data2.get('AI Overview', 'No')).lower() in ['yes', 'y', 'true'] else "❌ No"
+                ai_content2 = kw_data2.get('AI Overview', '')
+                ai_status2 = "🤖 Yes" if has_ai_overview(ai_content2) else "❌ No"
                 st.markdown(f'<p style="color: #a0a9c0;">AI Overview: {ai_status2}</p>', unsafe_allow_html=True)
                 
-                # FIXED: Use 'AIO Links' column which contains the actual AI Overview content
-                if str(kw_data2.get('AI Overview', 'No')).lower() in ['yes', 'y', 'true'] and 'AIO Links' in kw_data2:
-                    with st.expander(f"🤖 AI Overview Content - {date2}", expanded=False):
-                        aio_content = kw_data2.get('AIO Links', '')
-                        if pd.notna(aio_content) and aio_content and str(aio_content) != '#ERROR!':
-                            st.text_area(
-                                f"AI Overview content for {date2}",
-                                aio_content,
-                                height=200,
-                                key=f"aio_content_{date2}_{selected_keyword}"
-                            )
-                        else:
-                            st.write("No AI Overview content available")
+                if has_ai_overview(ai_content2):
+                    with st.expander(f"🤖 AI Overview Content - {selected_dt2_display}", expanded=False):
+                        st.text_area(
+                            f"AI Overview content",
+                            ai_content2,
+                            height=200,
+                            key=f"aio_content_2_{selected_keyword}",
+                            label_visibility="collapsed"
+                        )
                 
                 if 'Full Results Data' in kw_data2:
-                    with st.expander(f"📄 Full Results Data - {date2}", expanded=False):
+                    with st.expander(f"📄 Full Results Data - {selected_dt2_display}", expanded=False):
                         full_results = kw_data2.get('Full Results Data', '')
                         if pd.notna(full_results) and full_results and str(full_results) != '#ERROR!':
                             st.text_area(
-                                f"Complete search results for {date2}",
+                                f"Complete search results",
                                 full_results,
                                 height=300,
-                                key=f"full_results_{date2}_{selected_keyword}"
+                                key=f"full_results_2_{selected_keyword}",
+                                label_visibility="collapsed"
                             )
                         else:
                             st.write("No full results data available")
             else:
-                st.write("No data available for this date")
+                st.write("No data available for this time")
         
         # Export functionality
         st.markdown('<h3 class="section-header">📥 Export SERP Comparison</h3>', unsafe_allow_html=True)
@@ -1188,28 +1212,28 @@ def show_date_comparison(df_processed):
             row = {'Position': position}
             
             if position in serp1:
-                row[f'URL_{date1}'] = serp1[position]['url']
-                row[f'Domain_{date1}'] = serp1[position]['domain']
+                row[f'URL_{selected_dt1_display}'] = serp1[position]['url']
+                row[f'Domain_{selected_dt1_display}'] = serp1[position]['domain']
             else:
-                row[f'URL_{date1}'] = ""
-                row[f'Domain_{date1}'] = ""
+                row[f'URL_{selected_dt1_display}'] = ""
+                row[f'Domain_{selected_dt1_display}'] = ""
             
             if position in serp2:
-                row[f'URL_{date2}'] = serp2[position]['url']
-                row[f'Domain_{date2}'] = serp2[position]['domain']
+                row[f'URL_{selected_dt2_display}'] = serp2[position]['url']
+                row[f'Domain_{selected_dt2_display}'] = serp2[position]['domain']
             else:
-                row[f'URL_{date2}'] = ""
-                row[f'Domain_{date2}'] = ""
+                row[f'URL_{selected_dt2_display}'] = ""
+                row[f'Domain_{selected_dt2_display}'] = ""
             
             export_data.append(row)
         
         # Add Recharge position data
         export_data.append({
             'Position': 'Recharge.com',
-            f'URL_{date1}': f'Position {recharge_pos1}' if recharge_pos1 else 'Not Ranking',
-            f'Domain_{date1}': 'recharge.com',
-            f'URL_{date2}': f'Position {recharge_pos2}' if recharge_pos2 else 'Not Ranking',
-            f'Domain_{date2}': 'recharge.com'
+            f'URL_{selected_dt1_display}': f'Position {recharge_pos1}' if recharge_pos1 else 'Not Ranking',
+            f'Domain_{selected_dt1_display}': 'recharge.com',
+            f'URL_{selected_dt2_display}': f'Position {recharge_pos2}' if recharge_pos2 else 'Not Ranking',
+            f'Domain_{selected_dt2_display}': 'recharge.com'
         })
         
         export_df = pd.DataFrame(export_data)
@@ -1218,12 +1242,12 @@ def show_date_comparison(df_processed):
         st.download_button(
             label="📥 Download SERP Comparison as CSV",
             data=csv_data,
-            file_name=f"serp_comparison_{selected_keyword.replace(' ', '_')}_{date1}_vs_{date2}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            file_name=f"serp_comparison_{selected_keyword.replace(' ', '_')}_{selected_dt1.strftime('%Y%m%d_%H%M%S')}_vs_{selected_dt2.strftime('%Y%m%d_%H%M%S')}.csv",
             mime="text/csv"
         )
         
     else:
-        st.markdown('<div class="stError">❌ No date information found in the data.</div>', unsafe_allow_html=True)
+        st.markdown('<div class="stError">❌ No datetime information found in the data.</div>', unsafe_allow_html=True)
 
 def main():
     # Header
@@ -1274,7 +1298,7 @@ def main():
         if 'Market' not in df_processed.columns:
             df_processed['Market'] = df_processed['Location'].apply(get_country_flag)
     
-    # Convert datetime
+    # Convert datetime - FIXED: Handle various datetime formats
     if 'Date/Time' in df_processed.columns:
         df_processed['DateTime'] = pd.to_datetime(df_processed['Date/Time'], errors='coerce')
         latest_data = df_processed.sort_values('DateTime').groupby('Keyword_Clean').tail(1).reset_index(drop=True)
