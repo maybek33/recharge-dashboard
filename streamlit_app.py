@@ -1321,66 +1321,89 @@ def main():
     # Initialize parsing_info
     parsing_info = None
     
-    # Convert datetime - IMPROVED: Handle various datetime formats including "7/30/2025, 10:19:18 AM"
+    # Convert datetime - DIRECT approach for exact Excel column parsing
     if 'Date/Time' in df_processed.columns:
-        # Improved datetime parsing function
-        def parse_datetime_flexible(date_str):
-            if pd.isna(date_str):
+        st.sidebar.markdown("---")
+        st.sidebar.markdown('<h3 style="color: #ffffff;">🔍 Raw Date/Time Data</h3>', unsafe_allow_html=True)
+        
+        # Show first few raw values exactly as they are in Excel
+        raw_samples = df_processed['Date/Time'].dropna().head(5).tolist()
+        for i, raw_date in enumerate(raw_samples):
+            st.sidebar.markdown(f'<p style="color: #a0a9c0; font-size: 11px;">Row {i+1}: "{raw_date}" (type: {type(raw_date).__name__})</p>', unsafe_allow_html=True)
+        
+        # Simple parsing - let pandas handle it directly
+        def parse_excel_datetime(date_val):
+            if pd.isna(date_val):
                 return pd.NaT
             
-            # Convert to string and clean up
-            date_str = str(date_str).strip()
+            # If it's already a datetime object from Excel, return as-is
+            if isinstance(date_val, (pd.Timestamp, datetime.datetime)):
+                return pd.Timestamp(date_val)
             
-            # First try pandas auto-parsing (often works best)
+            # Convert to string and try parsing
+            date_str = str(date_val).strip()
+            
+            # Try pandas with different settings
             try:
-                parsed = pd.to_datetime(date_str, infer_datetime_format=True)
-                if not pd.isna(parsed):
-                    return parsed
+                # First try - let pandas infer everything
+                result = pd.to_datetime(date_str, errors='coerce', infer_datetime_format=True)
+                if pd.notna(result):
+                    return result
             except:
                 pass
             
-            # List of specific formats to try
-            formats = [
-                '%m/%d/%Y, %I:%M:%S %p',  # 7/30/2025, 10:19:18 AM
-                '%m/%d/%Y %I:%M:%S %p',   # 7/30/2025 10:19:18 AM  
-                '%m/%d/%Y, %H:%M:%S',     # 7/30/2025, 14:19:18
-                '%m/%d/%Y %H:%M:%S',      # 7/30/2025 14:19:18
-                '%Y-%m-%d %H:%M:%S',      # 2025-07-30 10:19:18
-                '%Y-%m-%d %H:%M',         # 2025-07-30 10:19
-                '%Y-%m-%d',               # 2025-07-30
-                '%m/%d/%Y',               # 7/30/2025
-                '%d/%m/%Y, %I:%M:%S %p',  # 30/7/2025, 10:19:18 AM
-                '%d/%m/%Y %I:%M:%S %p',   # 30/7/2025 10:19:18 AM
-            ]
+            # Manual format matching for your specific format
+            import re
             
-            for fmt in formats:
+            # Pattern: 7/30/2025, 10:19:18 AM
+            pattern = r'(\d{1,2})/(\d{1,2})/(\d{4}),?\s+(\d{1,2}):(\d{2}):(\d{2})\s+(AM|PM)'
+            match = re.match(pattern, date_str)
+            
+            if match:
+                month, day, year, hour, minute, second, ampm = match.groups()
+                hour = int(hour)
+                if ampm.upper() == 'PM' and hour != 12:
+                    hour += 12
+                elif ampm.upper() == 'AM' and hour == 12:
+                    hour = 0
+                
                 try:
-                    parsed = pd.to_datetime(date_str, format=fmt)
-                    return parsed
+                    dt = datetime.datetime(int(year), int(month), int(day), hour, int(minute), int(second))
+                    return pd.Timestamp(dt)
                 except:
-                    continue
+                    pass
             
-            # If nothing works, return NaT
             return pd.NaT
         
-        # Apply the parsing function
-        df_processed['DateTime'] = df_processed['Date/Time'].apply(parse_datetime_flexible)
+        # Apply parsing
+        df_processed['DateTime'] = df_processed['Date/Time'].apply(parse_excel_datetime)
         
-        # Remove any rows where datetime parsing failed
-        before_filter = len(df_processed)
+        # Check results
+        successful = df_processed['DateTime'].notna().sum()
+        total = len(df_processed)
+        failed = total - successful
+        
+        st.sidebar.markdown(f'<p style="color: #10b981; font-size: 12px;">✅ Parsed: {successful}/{total}</p>', unsafe_allow_html=True)
+        if failed > 0:
+            st.sidebar.markdown(f'<p style="color: #ef4444; font-size: 12px;">❌ Failed: {failed}</p>', unsafe_allow_html=True)
+        
+        # Show parsed results
+        if successful > 0:
+            parsed_samples = df_processed[df_processed['DateTime'].notna()]['DateTime'].head(3)
+            st.sidebar.markdown('<p style="color: #10b981; font-size: 11px;">Parsed results:</p>', unsafe_allow_html=True)
+            for i, parsed_dt in enumerate(parsed_samples):
+                formatted = parsed_dt.strftime('%m/%d/%Y %I:%M:%S %p')
+                st.sidebar.markdown(f'<p style="color: #10b981; font-size: 11px;">✅ {formatted}</p>', unsafe_allow_html=True)
+        
+        # Remove failed parsing rows
         df_processed = df_processed.dropna(subset=['DateTime'])
-        after_filter = len(df_processed)
-        
-        # Store parsing info for sidebar display later
-        parsing_info = {
-            'successful_parse': df_processed['DateTime'].notna().sum(),
-            'total_rows': before_filter,
-            'removed_rows': before_filter - after_filter,
-            'sample_dates': df_processed['Date/Time'].dropna().head(3).tolist() if 'Date/Time' in df_processed.columns else [],
-            'sample_parsed': df_processed[df_processed['DateTime'].notna()]['DateTime'].head(3).tolist() if after_filter > 0 else []
-        }
-        
         latest_data = df_processed.sort_values('DateTime').groupby('Keyword_Clean').tail(1).reset_index(drop=True)
+        
+        parsing_info = {
+            'successful_parse': successful,
+            'total_rows': total,
+            'removed_rows': failed
+        }
     else:
         parsing_info = None
         latest_data = df_processed.groupby('Keyword_Clean').tail(1).reset_index(drop=True)
