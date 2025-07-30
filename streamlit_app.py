@@ -663,11 +663,15 @@ def show_date_comparison(df_processed):
         if not selected_keyword:
             return
         
-        # Get data for selected keyword
-        kw_data1 = data1[data1['Keyword'] == selected_keyword].iloc[0] if not data1[data1['Keyword'] == selected_keyword].empty else None
-        kw_data2 = data2[data2['Keyword'] == selected_keyword].iloc[0] if not data2[data2['Keyword'] == selected_keyword].empty else None
+        # Get data for selected keyword - FIXED: Proper boolean evaluation
+        kw_data1_filtered = data1[data1['Keyword'] == selected_keyword]
+        kw_data2_filtered = data2[data2['Keyword'] == selected_keyword]
         
-        if not kw_data1 and not kw_data2:
+        kw_data1 = kw_data1_filtered.iloc[0] if not kw_data1_filtered.empty else None
+        kw_data2 = kw_data2_filtered.iloc[0] if not kw_data2_filtered.empty else None
+        
+        # FIXED: Use proper None checks instead of pandas boolean evaluation
+        if kw_data1 is None and kw_data2 is None:
             st.markdown('<div class="stError">❌ No data found for selected keyword on either date.</div>', unsafe_allow_html=True)
             return
         
@@ -927,20 +931,24 @@ def show_date_comparison(df_processed):
                 ai_status1 = "🤖 Yes" if str(kw_data1.get('AI Overview', 'No')).lower() in ['yes', 'y', 'true'] else "❌ No"
                 st.markdown(f'<p style="color: #a0a9c0;">AI Overview: {ai_status1}</p>', unsafe_allow_html=True)
                 
+                # FIXED: Use 'AIO Links' column which contains the actual AI Overview content
                 if str(kw_data1.get('AI Overview', 'No')).lower() in ['yes', 'y', 'true'] and 'AIO Links' in kw_data1:
-                    with st.expander(f"🔗 AIO Links - {date1}", expanded=False):
-                        aio_links = kw_data1.get('AIO Links', '')
-                        if pd.notna(aio_links) and aio_links:
-                            for i, link in enumerate(str(aio_links).split('\n'), 1):
-                                if link.strip():
-                                    st.markdown(f"**{i}.** [{link}]({link})")
+                    with st.expander(f"🤖 AI Overview Content - {date1}", expanded=False):
+                        aio_content = kw_data1.get('AIO Links', '')
+                        if pd.notna(aio_content) and aio_content and str(aio_content) != '#ERROR!':
+                            st.text_area(
+                                f"AI Overview content for {date1}",
+                                aio_content,
+                                height=200,
+                                key=f"aio_content_{date1}_{selected_keyword}"
+                            )
                         else:
-                            st.write("No AIO links available")
+                            st.write("No AI Overview content available")
                 
                 if 'Full Results Data' in kw_data1:
                     with st.expander(f"📄 Full Results Data - {date1}", expanded=False):
                         full_results = kw_data1.get('Full Results Data', '')
-                        if pd.notna(full_results) and full_results:
+                        if pd.notna(full_results) and full_results and str(full_results) != '#ERROR!':
                             st.text_area(
                                 f"Complete search results for {date1}",
                                 full_results,
@@ -959,20 +967,24 @@ def show_date_comparison(df_processed):
                 ai_status2 = "🤖 Yes" if str(kw_data2.get('AI Overview', 'No')).lower() in ['yes', 'y', 'true'] else "❌ No"
                 st.markdown(f'<p style="color: #a0a9c0;">AI Overview: {ai_status2}</p>', unsafe_allow_html=True)
                 
+                # FIXED: Use 'AIO Links' column which contains the actual AI Overview content
                 if str(kw_data2.get('AI Overview', 'No')).lower() in ['yes', 'y', 'true'] and 'AIO Links' in kw_data2:
-                    with st.expander(f"🔗 AIO Links - {date2}", expanded=False):
-                        aio_links = kw_data2.get('AIO Links', '')
-                        if pd.notna(aio_links) and aio_links:
-                            for i, link in enumerate(str(aio_links).split('\n'), 1):
-                                if link.strip():
-                                    st.markdown(f"**{i}.** [{link}]({link})")
+                    with st.expander(f"🤖 AI Overview Content - {date2}", expanded=False):
+                        aio_content = kw_data2.get('AIO Links', '')
+                        if pd.notna(aio_content) and aio_content and str(aio_content) != '#ERROR!':
+                            st.text_area(
+                                f"AI Overview content for {date2}",
+                                aio_content,
+                                height=200,
+                                key=f"aio_content_{date2}_{selected_keyword}"
+                            )
                         else:
-                            st.write("No AIO links available")
+                            st.write("No AI Overview content available")
                 
                 if 'Full Results Data' in kw_data2:
                     with st.expander(f"📄 Full Results Data - {date2}", expanded=False):
                         full_results = kw_data2.get('Full Results Data', '')
-                        if pd.notna(full_results) and full_results:
+                        if pd.notna(full_results) and full_results and str(full_results) != '#ERROR!':
                             st.text_area(
                                 f"Complete search results for {date2}",
                                 full_results,
@@ -1025,7 +1037,7 @@ def show_date_comparison(df_processed):
         st.download_button(
             label="📥 Download SERP Comparison as CSV",
             data=csv_data,
-            file_name=f"serp_comparison_{selected_keyword}_{date1}_vs_{date2}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            file_name=f"serp_comparison_{selected_keyword.replace(' ', '_')}_{date1}_vs_{date2}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
             mime="text/csv"
         )
         
