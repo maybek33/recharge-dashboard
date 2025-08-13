@@ -1637,6 +1637,269 @@ def show_llm_position_tracking(llm_df):
             
             st.markdown('</div>', unsafe_allow_html=True)
     
+    # Compact Position Matrix View
+    st.markdown('<div class="section-title">📋 All Keywords Position Matrix (Top 5)</div>', unsafe_allow_html=True)
+    
+    if not filtered_df.empty:
+        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+        
+        # Create matrix data for all keywords
+        matrix_data = []
+        
+        for keyword in sorted(all_keywords):
+            keyword_data = filtered_df[filtered_df['Keyword'] == keyword]
+            
+            # Get latest data if datetime available
+            if not keyword_data['DateTime'].isna().all():
+                latest_time = keyword_data['DateTime'].max()
+                keyword_data = keyword_data[keyword_data['DateTime'] == latest_time]
+            
+            # Get top 5 positions
+            top_5 = keyword_data[keyword_data['Position'] <= 5].sort_values('Position')
+            
+            # Create row data
+            row_data = {
+                'Keyword': keyword,
+                'Country': get_country_flag(keyword_data['Country'].iloc[0]) if not keyword_data.empty else 'Unknown'
+            }
+            
+            # Add position columns
+            for pos in range(1, 6):
+                pos_data = top_5[top_5['Position'] == pos]
+                if not pos_data.empty:
+                    url = pos_data['Result_URL'].iloc[0]
+                    try:
+                        domain = urlparse(url).netloc.replace('www.', '')
+                        if 'recharge.com' in url.lower():
+                            row_data[f'Pos {pos}'] = f"🔋 {domain}"
+                        else:
+                            row_data[f'Pos {pos}'] = domain[:20]
+                    except:
+                        row_data[f'Pos {pos}'] = url[:20]
+                else:
+                    row_data[f'Pos {pos}'] = "-"
+            
+            # Add Recharge position
+            recharge_pos = keyword_data[
+                keyword_data['Result_URL'].str.contains('recharge.com', case=False, na=False)
+            ]['Position'].min()
+            
+            if pd.notna(recharge_pos):
+                row_data['Recharge Pos'] = f"#{int(recharge_pos)}"
+            else:
+                row_data['Recharge Pos'] = "Not Ranking"
+            
+            matrix_data.append(row_data)
+        
+        # Create DataFrame
+        matrix_df = pd.DataFrame(matrix_data)
+        
+        # Sort by Recharge position
+        matrix_df['Sort_Key'] = matrix_df['Recharge Pos'].apply(
+            lambda x: int(x.replace('#', '')) if x.startswith('#') else 999
+        )
+        matrix_df = matrix_df.sort_values('Sort_Key').drop('Sort_Key', axis=1)
+        
+        # Display the matrix
+        st.dataframe(
+            matrix_df,
+            use_container_width=True,
+            hide_index=True,
+            height=min(600, 40 * len(matrix_df) + 50)
+        )
+        
+        # Summary stats
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            ranking_count = len([x for x in matrix_df['Recharge Pos'] if x != 'Not Ranking'])
+            st.metric("Keywords with Recharge", f"{ranking_count}/{len(matrix_df)}")
+        
+        with col2:
+            top_3_count = len([x for x in matrix_df['Recharge Pos'] if x.startswith('#') and int(x[1:]) <= 3])
+            st.metric("In Top 3", top_3_count)
+        
+        with col3:
+            pos_1_count = len([x for x in matrix_df['Recharge Pos'] if x == '#1'])
+            st.metric("Position #1", pos_1_count)
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Complete Position Rankings by Keyword
+    st.markdown('<div class="section-title">🎯 Complete Position Rankings by Keyword</div>', unsafe_allow_html=True)
+    
+    if not filtered_df.empty:
+        # Keyword selector for detailed SERP view
+        col1, col2, col3 = st.columns([2, 1, 1])
+        
+        with col1:
+            selected_keyword_detail = st.selectbox(
+                "Select keyword to see all positions:",
+                sorted(all_keywords),
+                key="llm_keyword_detail_selector"
+            )
+        
+        with col2:
+            max_positions = st.slider(
+                "Show top N positions:",
+                min_value=5,
+                max_value=30,
+                value=10,
+                step=5,
+                key="llm_max_positions"
+            )
+        
+        with col3:
+            show_latest_only = st.checkbox(
+                "Latest results only",
+                value=True,
+                key="llm_latest_only",
+                help="Show only the most recent results for this keyword"
+            )
+        
+        if selected_keyword_detail:
+            st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+            
+            # Filter data for selected keyword
+            keyword_detail_data = filtered_df[
+                filtered_df['Keyword'] == selected_keyword_detail
+            ].copy()
+            
+            if not keyword_detail_data.empty:
+                # Get latest or all timestamps
+                if show_latest_only and not keyword_detail_data['DateTime'].isna().all():
+                    latest_time = keyword_detail_data['DateTime'].max()
+                    keyword_detail_data = keyword_detail_data[
+                        keyword_detail_data['DateTime'] == latest_time
+                    ]
+                    display_time = latest_time.strftime('%B %d, %Y at %I:%M %p') if pd.notna(latest_time) else "Unknown"
+                else:
+                    display_time = "All available data"
+                
+                # Get country for this keyword
+                keyword_country = keyword_detail_data['Country'].iloc[0] if 'Country' in keyword_detail_data.columns else 'Unknown'
+                
+                # Create position summary
+                st.markdown(f"**📍 Keyword:** `{selected_keyword_detail}` | **🌍 Country:** {get_country_flag(keyword_country)} | **🕐 Data:** {display_time}")
+                
+                # Group by position and get URLs
+                position_data = keyword_detail_data[
+                    keyword_detail_data['Position'] <= max_positions
+                ].sort_values('Position')
+                
+                if not position_data.empty:
+                    # Create two-column layout for positions
+                    col_left, col_right = st.columns(2)
+                    
+                    # Split positions into two columns
+                    positions = sorted(position_data['Position'].unique())
+                    mid_point = (len(positions) + 1) // 2
+                    
+                    with col_left:
+                        for pos in positions[:mid_point]:
+                            pos_urls = position_data[position_data['Position'] == pos]['Result_URL'].values
+                            
+                            for url in pos_urls:
+                                # Determine if it's Recharge
+                                is_recharge = 'recharge.com' in url.lower()
+                                
+                                # Extract domain for display
+                                try:
+                                    domain = urlparse(url).netloc.replace('www.', '')
+                                    display_url = domain if domain else url[:50]
+                                except:
+                                    display_url = url[:50] + "..." if len(url) > 50 else url
+                                
+                                # Style based on whether it's Recharge
+                                if is_recharge:
+                                    position_color = "#f59e0b"
+                                    badge = "🔋 Recharge"
+                                    result_class = "recharge"
+                                else:
+                                    position_color = "#64748b"
+                                    badge = ""
+                                    result_class = ""
+                                
+                                st.markdown(f"""
+                                <div class="serp-result {result_class}">
+                                    <div class="position-number" style="background: {position_color};">
+                                        {int(pos)}
+                                    </div>
+                                    <div class="result-content">
+                                        <div class="result-url">{display_url}</div>
+                                        {f'<span class="result-badge badge-recharge">{badge}</span>' if badge else ''}
+                                    </div>
+                                </div>
+                                """, unsafe_allow_html=True)
+                    
+                    with col_right:
+                        for pos in positions[mid_point:]:
+                            pos_urls = position_data[position_data['Position'] == pos]['Result_URL'].values
+                            
+                            for url in pos_urls:
+                                # Determine if it's Recharge
+                                is_recharge = 'recharge.com' in url.lower()
+                                
+                                # Extract domain for display
+                                try:
+                                    domain = urlparse(url).netloc.replace('www.', '')
+                                    display_url = domain if domain else url[:50]
+                                except:
+                                    display_url = url[:50] + "..." if len(url) > 50 else url
+                                
+                                # Style based on whether it's Recharge
+                                if is_recharge:
+                                    position_color = "#f59e0b"
+                                    badge = "🔋 Recharge"
+                                    result_class = "recharge"
+                                else:
+                                    position_color = "#64748b"
+                                    badge = ""
+                                    result_class = ""
+                                
+                                st.markdown(f"""
+                                <div class="serp-result {result_class}">
+                                    <div class="position-number" style="background: {position_color};">
+                                        {int(pos)}
+                                    </div>
+                                    <div class="result-content">
+                                        <div class="result-url">{display_url}</div>
+                                        {f'<span class="result-badge badge-recharge">{badge}</span>' if badge else ''}
+                                    </div>
+                                </div>
+                                """, unsafe_allow_html=True)
+                    
+                    # Summary statistics
+                    st.markdown("---")
+                    col_stat1, col_stat2, col_stat3 = st.columns(3)
+                    
+                    with col_stat1:
+                        recharge_pos = position_data[
+                            position_data['Result_URL'].str.contains('recharge.com', case=False, na=False)
+                        ]['Position'].min()
+                        
+                        if pd.notna(recharge_pos):
+                            st.metric("Recharge Position", f"#{int(recharge_pos)}")
+                        else:
+                            st.metric("Recharge Position", "Not Ranking")
+                    
+                    with col_stat2:
+                        total_results = len(position_data['Position'].unique())
+                        st.metric("Positions Shown", f"{total_results}/{max_positions}")
+                    
+                    with col_stat3:
+                        unique_domains = position_data['Result_URL'].apply(
+                            lambda x: urlparse(x).netloc.replace('www.', '') if x else ''
+                        ).nunique()
+                        st.metric("Unique Domains", unique_domains)
+                
+                else:
+                    st.info(f"No results found in top {max_positions} positions")
+            else:
+                st.warning(f"No data available for keyword: {selected_keyword_detail}")
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+    
     # Historical Performance Summary
     if not filtered_df['DateTime'].isna().all() and not recharge_df.empty:
         st.markdown('<div class="section-title">📊 Historical Performance Summary</div>', unsafe_allow_html=True)
