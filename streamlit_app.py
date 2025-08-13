@@ -7,6 +7,7 @@ import datetime
 import numpy as np
 import re
 from urllib.parse import urlparse
+
 # Page configuration
 st.set_page_config(
     page_title="Recharge.com SEO Dashboard",
@@ -14,6 +15,7 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
 # Dark theme CSS styling
 st.markdown("""
 <style>
@@ -312,6 +314,7 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+
 # Utility functions
 def clean_html_from_url(url):
     """Clean all HTML artifacts from URLs"""
@@ -339,6 +342,7 @@ def clean_html_from_url(url):
     url = url.replace('"', '').replace("'", '').replace('>', '').replace('<', '').strip()
     
     return url
+
 def get_country_flag(location_code):
     """Get country flag emoji from location code"""
     flag_map = {
@@ -354,6 +358,7 @@ def get_country_flag(location_code):
         'nl': '🇳🇱 Netherlands'
     }
     return flag_map.get(location_code.lower(), f'{location_code.upper()}')
+
 def get_position_status(position):
     """Get position status and color"""
     if pd.isna(position) or position == '' or str(position).lower() in ['not ranking', 'lost']:
@@ -368,11 +373,13 @@ def get_position_status(position):
             return f'#{pos}', '#ef4444'
     except:
         return str(position), '#64748b'
+
 def has_ai_overview(ai_content):
     """Check if AI Overview content exists"""
     if pd.isna(ai_content) or not ai_content or str(ai_content) == '#ERROR!' or str(ai_content).strip() == '':
         return False
     return True
+
 @st.cache_data(ttl=60)
 def load_data_from_google_sheets():
     """Load data directly from the specified Google Sheets using GIDs from Main sheet"""
@@ -449,6 +456,7 @@ def load_data_from_google_sheets():
     except Exception as e:
         st.error(f"Error loading data: {str(e)}")
         return pd.DataFrame()
+
 @st.cache_data(ttl=60)
 def load_llm_data():
     """Load LLM position tracking data from Excel file or Google Sheets"""
@@ -539,6 +547,7 @@ def load_llm_data():
     except Exception as e:
         st.error(f"Error loading LLM data: {str(e)}")
         return pd.DataFrame()
+
 def parse_excel_datetime(date_val):
     """Parse datetime from various formats"""
     if pd.isna(date_val):
@@ -578,6 +587,7 @@ def parse_excel_datetime(date_val):
             continue
     
     return pd.NaT
+
 def create_metric_card(title, value, change=None, format_as_percent=False):
     """Create a metric card component"""
     change_class = ""
@@ -601,6 +611,7 @@ def create_metric_card(title, value, change=None, format_as_percent=False):
         {f'<div class="metric-change {change_class}">{change_text}</div>' if change_text else ''}
     </div>
     """
+
 def show_executive_dashboard(df_processed):
     """Executive-level dashboard view"""
     
@@ -771,6 +782,7 @@ def show_executive_dashboard(df_processed):
             )
         
         st.markdown('</div>', unsafe_allow_html=True)
+
 def show_keyword_analysis(df_processed):
     """Detailed keyword analysis view"""
     
@@ -875,6 +887,7 @@ def show_keyword_analysis(df_processed):
             st.info("No numeric position data available for trend analysis.")
         
         st.markdown('</div>', unsafe_allow_html=True)
+
 def show_serp_comparison(df_processed):
     """Professional SERP comparison view - Top 5 results only"""
     
@@ -1246,6 +1259,7 @@ def show_serp_comparison(df_processed):
             st.info("No AI Overview content was present at this time.")
         
         st.markdown('</div>', unsafe_allow_html=True)
+
 def show_llm_position_tracking(llm_df):
     """Show LLM/ChatGPT position tracking dashboard"""
     
@@ -2202,6 +2216,7 @@ def show_llm_position_tracking(llm_df):
                 st.info("Not enough historical data")
             
             st.markdown('</div>', unsafe_allow_html=True)
+
 def main():
     # Load data
     with st.spinner('Loading data...'):
@@ -2253,5 +2268,6 @@ def main():
         show_serp_comparison(df)
     elif page == "🤖 LLM Position Tracking":
         show_llm_position_tracking(llm_df)
-if **name** == "__main__":
+
+if __name__ == "__main__":
     main()
