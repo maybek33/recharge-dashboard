@@ -1,4 +1,60 @@
-import streamlit as st
+# Individual Keyword Time Analysis
+    st.markdown('<div class="section-title">📈 Keyword Position Trends Over Time</div>', unsafe_allow_html=True)
+    
+    # Get chart theme
+    chart_theme = get_chart_theme()
+    
+    if not filtered_df.empty and not filtered_df['DateTime'].isna().all():
+        # Keyword selector for time analysis
+        col1, col2 = st.columns([3, 1])
+        
+        with col1:
+            selected_keyword_for_trend = st.selectbox(
+                "Select keyword to analyze position trend:",
+                sorted(all_keywords),
+                key="llm_keyword_trend_selector"
+            )
+        
+        with col2:
+            show_all_results = st.checkbox(
+                "Show all results",
+                key="llm_show_all_results",
+                help="Show all search results, not just Recharge.com"
+            )
+        
+        if selected_keyword_for_trend:
+            st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+            
+            # Filter data for selected keyword
+            keyword_trend_data = filtered_df[
+                filtered_df['Keyword'] == selected_keyword_for_trend
+            ].copy()
+            
+            if not keyword_trend_data['DateTime'].isna().all():
+                # Group by datetime and get Recharge position
+                keyword_trend_data = keyword_trend_data.sort_values('DateTime')
+                
+                if show_all_results:
+                    # Show all top positions over time
+                    trend_data = keyword_trend_data.groupby(['DateTime', 'Result_URL'])['Position'].min().reset_index()
+                    
+                    # Create line chart for multiple URLs
+                    fig_trend = px.line(
+                        trend_data,
+                        x='DateTime',
+                        y='Position',
+                        color='Result_URL',
+                        title=f'Position Trends: {selected_keyword_for_trend}',
+                        markers=True,
+                        line_shape='linear'
+                    )
+                    
+                    # Customize traces
+                    for trace in fig_trend.data:
+                        if 'recharge.com' in trace.name.lower():
+                            trace.line.width = 4
+                            trace.line.color = '#f59e0b'
+                            import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -316,6 +372,27 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Utility functions
+def get_chart_theme():
+    """Get chart theme configuration based on current theme"""
+    if st.session_state.theme == 'dark':
+        return {
+            'paper_bgcolor': 'rgba(0,0,0,0)',
+            'plot_bgcolor': 'rgba(0,0,0,0)',
+            'font_color': '#f8fafc',
+            'title_font_color': '#f8fafc',
+            'gridcolor': '#334155',
+            'linecolor': '#334155'
+        }
+    else:
+        return {
+            'paper_bgcolor': 'rgba(255,255,255,0)',
+            'plot_bgcolor': 'rgba(255,255,255,0)',
+            'font_color': '#111827',
+            'title_font_color': '#111827',
+            'gridcolor': '#e5e7eb',
+            'linecolor': '#e5e7eb'
+        }
+
 def clean_html_from_url(url):
     """Clean all HTML artifacts from URLs"""
     if pd.isna(url):
@@ -671,6 +748,9 @@ def show_executive_dashboard(df_processed):
     # Charts Section
     st.markdown('<div class="section-title">📈 Performance Analytics</div>', unsafe_allow_html=True)
     
+    # Get chart theme
+    chart_theme = get_chart_theme()
+    
     col1, col2 = st.columns(2)
     
     with col1:
@@ -702,11 +782,11 @@ def show_executive_dashboard(df_processed):
         
         fig_pie.update_layout(
             height=350,
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            font_color='#f8fafc',
+            paper_bgcolor=chart_theme['paper_bgcolor'],
+            plot_bgcolor=chart_theme['plot_bgcolor'],
+            font_color=chart_theme['font_color'],
             title_font_size=16,
-            title_font_color='#f8fafc'
+            title_font_color=chart_theme['title_font_color']
         )
         
         st.plotly_chart(fig_pie, use_container_width=True)
@@ -737,11 +817,13 @@ def show_executive_dashboard(df_processed):
                     height=350,
                     yaxis_title="Average Position (Lower is Better)",
                     yaxis=dict(autorange="reversed"),
-                    paper_bgcolor='rgba(0,0,0,0)',
-                    plot_bgcolor='rgba(0,0,0,0)',
-                    font_color='#f8fafc',
+                    paper_bgcolor=chart_theme['paper_bgcolor'],
+                    plot_bgcolor=chart_theme['plot_bgcolor'],
+                    font_color=chart_theme['font_color'],
                     title_font_size=16,
-                    title_font_color='#f8fafc'
+                    title_font_color=chart_theme['title_font_color'],
+                    xaxis=dict(gridcolor=chart_theme['gridcolor']),
+                    yaxis2=dict(gridcolor=chart_theme['gridcolor']) if 'yaxis2' in fig_bar.layout else None
                 )
                 
                 st.plotly_chart(fig_bar, use_container_width=True)
@@ -844,6 +926,9 @@ def show_keyword_analysis(df_processed):
         st.markdown('<div class="section-title">📈 Position Trend</div>', unsafe_allow_html=True)
         st.markdown('<div class="chart-container">', unsafe_allow_html=True)
         
+        # Get chart theme
+        chart_theme = get_chart_theme()
+        
         # Create position trend
         plot_data = keyword_data.copy()
         plot_data['Position_Numeric'] = plot_data['Recharge Position'].apply(
@@ -865,10 +950,10 @@ def show_keyword_analysis(df_processed):
                 height=400,
                 yaxis=dict(autorange="reversed", title="Search Position"),
                 xaxis_title="Date",
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)',
-                font_color='#f8fafc',
-                title_font_color='#f8fafc'
+                paper_bgcolor=chart_theme['paper_bgcolor'],
+                plot_bgcolor=chart_theme['plot_bgcolor'],
+                font_color=chart_theme['font_color'],
+                title_font_color=chart_theme['title_font_color']
             )
             
             # Add reference lines
@@ -1372,6 +1457,9 @@ def show_llm_position_tracking(llm_df):
     # Charts Section
     st.markdown('<div class="section-title">📊 LLM Performance Analytics</div>', unsafe_allow_html=True)
     
+    # Get chart theme
+    chart_theme = get_chart_theme()
+    
     col1, col2 = st.columns(2)
     
     with col1:
@@ -1393,11 +1481,11 @@ def show_llm_position_tracking(llm_df):
             fig_bar.update_layout(
                 height=350,
                 showlegend=False,
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)',
-                font_color='#f8fafc',
+                paper_bgcolor=chart_theme['paper_bgcolor'],
+                plot_bgcolor=chart_theme['plot_bgcolor'],
+                font_color=chart_theme['font_color'],
                 title_font_size=16,
-                title_font_color='#f8fafc'
+                title_font_color=chart_theme['title_font_color']
             )
             
             st.plotly_chart(fig_bar, use_container_width=True)
@@ -1445,11 +1533,11 @@ def show_llm_position_tracking(llm_df):
                 height=350,
                 yaxis=dict(title='Keywords', side='left'),
                 yaxis2=dict(title='Avg Position', overlaying='y', side='right'),
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)',
-                font_color='#f8fafc',
+                paper_bgcolor=chart_theme['paper_bgcolor'],
+                plot_bgcolor=chart_theme['plot_bgcolor'],
+                font_color=chart_theme['font_color'],
                 title_font_size=16,
-                title_font_color='#f8fafc',
+                title_font_color=chart_theme['title_font_color'],
                 showlegend=True,
                 legend=dict(x=0, y=1, bgcolor='rgba(0,0,0,0)')
             )
@@ -1553,11 +1641,11 @@ def show_llm_position_tracking(llm_df):
                             range=[0.5, 10.5]
                         ),
                         xaxis_title="Date/Time",
-                        paper_bgcolor='rgba(0,0,0,0)',
-                        plot_bgcolor='rgba(0,0,0,0)',
-                        font_color='#f8fafc',
+                        paper_bgcolor=chart_theme['paper_bgcolor'],
+                        plot_bgcolor=chart_theme['plot_bgcolor'],
+                        font_color=chart_theme['font_color'],
                         title_font_size=16,
-                        title_font_color='#f8fafc',
+                        title_font_color=chart_theme['title_font_color'],
                         hovermode='x unified'
                     )
                     
@@ -1712,6 +1800,9 @@ def show_llm_position_tracking(llm_df):
             if not keyword_data['DateTime'].isna().all():
                 latest_time = keyword_data['DateTime'].max()
                 keyword_data = keyword_data[keyword_data['DateTime'] == latest_time]
+            
+            # Remove duplicates - keep only first URL for each position
+            keyword_data = keyword_data.drop_duplicates(subset=['Position'], keep='first')
             
             # Get top 5 positions
             top_5 = keyword_data[keyword_data['Position'] <= 5].sort_values('Position')
@@ -1868,51 +1959,51 @@ def show_llm_position_tracking(llm_df):
                     (position_data['Result_URL'].str.startswith('http'))
                 ]
                 
+                # Remove duplicates - keep only first URL for each position
+                position_data = position_data.drop_duplicates(subset=['Position'], keep='first')
                 position_data = position_data.sort_values('Position')
                 
                 if not position_data.empty:
                     # Create single column layout for better readability
                     st.markdown("**Search Results:**")
                     
-                    # Display positions in order
+                    # Display positions in order - one URL per position
                     for pos in sorted(position_data['Position'].unique()):
-                        pos_entries = position_data[position_data['Position'] == pos]
+                        entry = position_data[position_data['Position'] == pos].iloc[0]
+                        url = entry['Result_URL']
                         
-                        for _, entry in pos_entries.iterrows():
-                            url = entry['Result_URL']
-                            
-                            # Determine if it's Recharge
-                            is_recharge = 'recharge.com' in url.lower()
-                            
-                            # Choose display format based on toggle
-                            if show_full_urls:
-                                display_url = url
-                            else:
-                                try:
-                                    display_url = urlparse(url).netloc.replace('www.', '')
-                                    if not display_url:
-                                        display_url = url
-                                except:
+                        # Determine if it's Recharge
+                        is_recharge = 'recharge.com' in url.lower()
+                        
+                        # Choose display format based on toggle
+                        if show_full_urls:
+                            display_url = url
+                        else:
+                            try:
+                                display_url = urlparse(url).netloc.replace('www.', '')
+                                if not display_url:
                                     display_url = url
-                            
-                            # Style based on whether it's Recharge
-                            if is_recharge:
-                                position_color = "#f59e0b"
-                                result_class = "recharge"
-                            else:
-                                position_color = "#64748b"
-                                result_class = ""
-                            
-                            st.markdown(f"""
-                            <div class="serp-result {result_class}" style="margin-bottom: 0.75rem;">
-                                <div class="position-number" style="background: {position_color};">
-                                    {int(pos)}
-                                </div>
-                                <div class="result-content" style="flex: 1;">
-                                    <div class="result-url" style="word-break: break-all; font-size: 0.85rem;">{display_url}</div>
-                                </div>
+                            except:
+                                display_url = url
+                        
+                        # Style based on whether it's Recharge
+                        if is_recharge:
+                            position_color = "#f59e0b"
+                            result_class = "recharge"
+                        else:
+                            position_color = "#64748b"
+                            result_class = ""
+                        
+                        st.markdown(f"""
+                        <div class="serp-result {result_class}" style="margin-bottom: 0.75rem;">
+                            <div class="position-number" style="background: {position_color};">
+                                {int(pos)}
                             </div>
-                            """, unsafe_allow_html=True)
+                            <div class="result-content" style="flex: 1;">
+                                <div class="result-url" style="word-break: break-all; font-size: 0.85rem;">{display_url}</div>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
                     
                     # Summary statistics
                     st.markdown("---")
@@ -1998,6 +2089,10 @@ def show_llm_position_tracking(llm_df):
                     data1 = comparison_data[comparison_data['DateTime'] == time1].copy()
                     data2 = comparison_data[comparison_data['DateTime'] == time2].copy()
                     
+                    # Remove duplicates - keep only first URL for each position
+                    data1 = data1.drop_duplicates(subset=['Position'], keep='first')
+                    data2 = data2.drop_duplicates(subset=['Position'], keep='first')
+                    
                     # Track movements
                     col1, col2, col3, col4 = st.columns(4)
                     
@@ -2062,25 +2157,24 @@ def show_llm_position_tracking(llm_df):
                         </div>
                         """, unsafe_allow_html=True)
                         
-                        # Show top 10 results from time1
+                        # Show top 10 results from time1 - one per position
                         for pos in sorted(data1['Position'].unique())[:10]:
-                            pos_data = data1[data1['Position'] == pos]
-                            for _, entry in pos_data.iterrows():
-                                url = entry['Result_URL']
-                                is_recharge = 'recharge.com' in url.lower()
-                                
-                                position_color = "#f59e0b" if is_recharge else "#64748b"
-                                
-                                st.markdown(f"""
-                                <div class="serp-result {'recharge' if is_recharge else ''}">
-                                    <div class="position-number" style="background: {position_color};">
-                                        {int(pos)}
-                                    </div>
-                                    <div class="result-content">
-                                        <div class="result-url" style="font-size: 0.75rem; word-break: break-all;">{url}</div>
-                                    </div>
+                            entry = data1[data1['Position'] == pos].iloc[0]
+                            url = entry['Result_URL']
+                            is_recharge = 'recharge.com' in url.lower()
+                            
+                            position_color = "#f59e0b" if is_recharge else "#64748b"
+                            
+                            st.markdown(f"""
+                            <div class="serp-result {'recharge' if is_recharge else ''}">
+                                <div class="position-number" style="background: {position_color};">
+                                    {int(pos)}
                                 </div>
-                                """, unsafe_allow_html=True)
+                                <div class="result-content">
+                                    <div class="result-url" style="font-size: 0.75rem; word-break: break-all;">{url}</div>
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
                     
                     with col_right:
                         st.markdown(f"""
@@ -2089,42 +2183,41 @@ def show_llm_position_tracking(llm_df):
                         </div>
                         """, unsafe_allow_html=True)
                         
-                        # Show top 10 results from time2
+                        # Show top 10 results from time2 - one per position
                         for pos in sorted(data2['Position'].unique())[:10]:
-                            pos_data = data2[data2['Position'] == pos]
-                            for _, entry in pos_data.iterrows():
-                                url = entry['Result_URL']
-                                is_recharge = 'recharge.com' in url.lower()
-                                
-                                # Check if this URL moved
-                                change_indicator = ""
-                                change_color = "#64748b"
-                                if url in urls1:
-                                    old_pos = data1[data1['Result_URL'] == url]['Position'].min()
-                                    if old_pos > pos:
-                                        change_indicator = f" ↑{int(old_pos - pos)}"
-                                        change_color = "#22c55e"
-                                    elif old_pos < pos:
-                                        change_indicator = f" ↓{int(pos - old_pos)}"
-                                        change_color = "#ef4444"
-                                else:
-                                    change_indicator = " (NEW)"
-                                    change_color = "#3b82f6"
-                                
-                                position_color = "#f59e0b" if is_recharge else change_color
-                                
-                                st.markdown(f"""
-                                <div class="serp-result {'recharge' if is_recharge else ''}">
-                                    <div class="position-number" style="background: {position_color};">
-                                        {int(pos)}
-                                    </div>
-                                    <div class="result-content">
-                                        <div class="result-url" style="font-size: 0.75rem; word-break: break-all; color: {change_color if not is_recharge else '#f59e0b'};">
-                                            {url}{change_indicator}
-                                        </div>
+                            entry = data2[data2['Position'] == pos].iloc[0]
+                            url = entry['Result_URL']
+                            is_recharge = 'recharge.com' in url.lower()
+                            
+                            # Check if this URL moved
+                            change_indicator = ""
+                            change_color = "#64748b"
+                            if url in urls1:
+                                old_pos = data1[data1['Result_URL'] == url]['Position'].min()
+                                if old_pos > pos:
+                                    change_indicator = f" ↑{int(old_pos - pos)}"
+                                    change_color = "#22c55e"
+                                elif old_pos < pos:
+                                    change_indicator = f" ↓{int(pos - old_pos)}"
+                                    change_color = "#ef4444"
+                            else:
+                                change_indicator = " (NEW)"
+                                change_color = "#3b82f6"
+                            
+                            position_color = "#f59e0b" if is_recharge else change_color
+                            
+                            st.markdown(f"""
+                            <div class="serp-result {'recharge' if is_recharge else ''}">
+                                <div class="position-number" style="background: {position_color};">
+                                    {int(pos)}
+                                </div>
+                                <div class="result-content">
+                                    <div class="result-url" style="font-size: 0.75rem; word-break: break-all; color: {change_color if not is_recharge else '#f59e0b'};">
+                                        {url}{change_indicator}
                                     </div>
                                 </div>
-                                """, unsafe_allow_html=True)
+                            </div>
+                            """, unsafe_allow_html=True)
                 else:
                     st.warning("Please select two different times for comparison")
             else:
@@ -2135,6 +2228,9 @@ def show_llm_position_tracking(llm_df):
     # Historical Performance Summary
     if not filtered_df['DateTime'].isna().all() and not recharge_df.empty:
         st.markdown('<div class="section-title">📊 Historical Performance Summary</div>', unsafe_allow_html=True)
+        
+        # Get chart theme
+        chart_theme = get_chart_theme()
         
         col1, col2 = st.columns(2)
         
@@ -2162,9 +2258,9 @@ def show_llm_position_tracking(llm_df):
                     height=300,
                     yaxis=dict(autorange="reversed", title="Average Position"),
                     xaxis_title="Date",
-                    paper_bgcolor='rgba(0,0,0,0)',
-                    plot_bgcolor='rgba(0,0,0,0)',
-                    font_color='#f8fafc',
+                    paper_bgcolor=chart_theme['paper_bgcolor'],
+                    plot_bgcolor=chart_theme['plot_bgcolor'],
+                    font_color=chart_theme['font_color'],
                     showlegend=False
                 )
                 
@@ -2200,9 +2296,9 @@ def show_llm_position_tracking(llm_df):
                     height=300,
                     yaxis=dict(title="Visibility (%)", range=[0, 100]),
                     xaxis_title="Date",
-                    paper_bgcolor='rgba(0,0,0,0)',
-                    plot_bgcolor='rgba(0,0,0,0)',
-                    font_color='#f8fafc',
+                    paper_bgcolor=chart_theme['paper_bgcolor'],
+                    plot_bgcolor=chart_theme['plot_bgcolor'],
+                    font_color=chart_theme['font_color'],
                     showlegend=False
                 )
                 
@@ -2231,6 +2327,7 @@ def main():
         return
     
     # Sidebar navigation - Updated with new option
+    st.sidebar.markdown("---")
     st.sidebar.markdown("### 📊 Navigation")
     
     page = st.sidebar.radio(
