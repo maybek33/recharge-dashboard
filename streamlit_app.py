@@ -429,6 +429,64 @@ def load_data_from_google_sheets():
         st.error(f"Error loading data: {str(e)}")
         return pd.DataFrame()
 
+@st.cache_data(ttl=60)
+def load_llm_data():
+    """Load LLM position tracking data from Excel file or Google Sheets"""
+    
+    try:
+        # Try to load from local Excel file first
+        try:
+            df = pd.read_excel('a pos3.xlsx')
+        except:
+            # If local file not found, load from Google Sheets
+            sheet_id = "1RMUPPVR02dWXt2a-lK_gAXhU1h7CS7l8GzZCBx-DvPA"
+            sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid=0"
+            df = pd.read_csv(sheet_url)
+        
+        # Process the data
+        processed_data = []
+        current_keyword = None
+        current_time = None
+        current_date = None
+        current_country = None
+        
+        for idx, row in df.iterrows():
+            # Skip empty rows or Start markers without keyword
+            if pd.isna(row.get('Results')) or row.get('Results') == 'Start':
+                if pd.notna(row.get('Keyword')):
+                    current_keyword = row['Keyword']
+                    current_time = row.get('Time')
+                    current_date = row.get('Date')
+                    current_country = row.get('Country')
+                continue
+            
+            # If we have a URL in Results column
+            if pd.notna(row.get('Results')) and row.get('Results') != 'Start':
+                processed_data.append({
+                    'Keyword': current_keyword if pd.isna(row.get('Keyword')) else row['Keyword'],
+                    'Time': current_time if pd.isna(row.get('Time')) else row['Time'],
+                    'Result_URL': row['Results'],
+                    'Position': row.get('Position'),
+                    'Date': current_date if pd.isna(row.get('Date')) else row['Date'],
+                    'Country': current_country if pd.isna(row.get('Country')) else row['Country']
+                })
+                
+                # Update current values if present
+                if pd.notna(row.get('Keyword')):
+                    current_keyword = row['Keyword']
+                if pd.notna(row.get('Time')):
+                    current_time = row['Time']
+                if pd.notna(row.get('Date')):
+                    current_date = row['Date']
+                if pd.notna(row.get('Country')):
+                    current_country = row['Country']
+        
+        return pd.DataFrame(processed_data)
+        
+    except Exception as e:
+        st.error(f"Error loading LLM data: {str(e)}")
+        return pd.DataFrame()
+
 def parse_excel_datetime(date_val):
     """Parse datetime from various formats"""
     if pd.isna(date_val):
@@ -1141,12 +1199,231 @@ def show_serp_comparison(df_processed):
         
         st.markdown('</div>', unsafe_allow_html=True)
 
+def show_llm_position_tracking(llm_df):
+    """Show LLM/ChatGPT position tracking dashboard"""
+    
+    if llm_df.empty:
+        st.error("No LLM data available.")
+        return
+    
+    # Header
+    st.markdown("""
+    <div class="dashboard-header">
+        <h1>🤖 LLM Position Tracking</h1>
+        <p>Recharge.com visibility in AI-powered search results</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Filter for Recharge.com entries
+    recharge_df = llm_df[llm_df['Result_URL'].str.contains('recharge.com', na=False, case=False)].copy()
+    
+    # Get unique keywords
+    all_keywords = llm_df['Keyword'].dropna().unique()
+    recharge_keywords = recharge_df['Keyword'].dropna().unique()
+    
+    # Key Metrics Row
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.markdown(create_metric_card("Total Keywords", len(all_keywords)), unsafe_allow_html=True)
+    
+    with col2:
+        ranking_rate = round((len(recharge_keywords)/len(all_keywords)*100)) if len(all_keywords) > 0 else 0
+        st.markdown(create_metric_card("Recharge Visibility", f"{len(recharge_keywords)} ({ranking_rate}%)"), unsafe_allow_html=True)
+    
+    with col3:
+        # Top 3 positions for Recharge
+        top_3 = len(recharge_df[recharge_df['Position'] <= 3]) if not recharge_df.empty else 0
+        st.markdown(create_metric_card("Top 3 Positions", top_3), unsafe_allow_html=True)
+    
+    with col4:
+        # Average position
+        avg_position = round(recharge_df['Position'].mean(), 1) if not recharge_df.empty else 'N/A'
+        st.markdown(create_metric_card("Avg Position", avg_position), unsafe_allow_html=True)
+    
+    # Charts Section
+    st.markdown('<div class="section-title">📊 LLM Performance Analytics</div>', unsafe_allow_html=True)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        # Position Distribution for Recharge
+        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+        
+        if not recharge_df.empty:
+            position_counts = recharge_df['Position'].value_counts().sort_index()
+            
+            fig_bar = px.bar(
+                x=position_counts.index,
+                y=position_counts.values,
+                title="Recharge.com Position Distribution in LLM Results",
+                labels={'x': 'Position', 'y': 'Frequency'},
+                color=position_counts.values,
+                color_continuous_scale=['#ef4444', '#f59e0b', '#22c55e'][::-1]
+            )
+            
+            fig_bar.update_layout(
+                height=350,
+                showlegend=False,
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font_color='#f8fafc',
+                title_font_size=16,
+                title_font_color='#f8fafc'
+            )
+            
+            st.plotly_chart(fig_bar, use_container_width=True)
+        else:
+            st.info("No Recharge.com entries found in LLM results")
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    with col2:
+        # Country Performance
+        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+        
+        if not recharge_df.empty and 'Country' in recharge_df.columns:
+            country_stats = recharge_df.groupby('Country').agg({
+                'Position': 'mean',
+                'Keyword': 'count'
+            }).round(1)
+            country_stats.columns = ['Avg Position', 'Keywords']
+            
+            # Create grouped bar chart
+            fig = go.Figure()
+            
+            fig.add_trace(go.Bar(
+                name='Keywords',
+                x=country_stats.index,
+                y=country_stats['Keywords'],
+                yaxis='y',
+                marker_color='#3b82f6',
+                text=country_stats['Keywords'],
+                textposition='auto',
+            ))
+            
+            fig.add_trace(go.Bar(
+                name='Avg Position',
+                x=country_stats.index,
+                y=country_stats['Avg Position'],
+                yaxis='y2',
+                marker_color='#f59e0b',
+                text=country_stats['Avg Position'],
+                textposition='auto',
+            ))
+            
+            fig.update_layout(
+                title="LLM Performance by Country",
+                height=350,
+                yaxis=dict(title='Keywords', side='left'),
+                yaxis2=dict(title='Avg Position', overlaying='y', side='right'),
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font_color='#f8fafc',
+                title_font_size=16,
+                title_font_color='#f8fafc',
+                showlegend=True,
+                legend=dict(x=0, y=1, bgcolor='rgba(0,0,0,0)')
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("No country data available")
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Keyword Performance Table
+    st.markdown('<div class="section-title">🔍 Keyword-Level LLM Performance</div>', unsafe_allow_html=True)
+    
+    if not llm_df.empty:
+        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+        
+        # Create summary by keyword
+        keyword_summary = []
+        
+        for keyword in all_keywords:
+            keyword_data = llm_df[llm_df['Keyword'] == keyword]
+            recharge_data = keyword_data[keyword_data['Result_URL'].str.contains('recharge.com', na=False, case=False)]
+            
+            summary = {
+                'Keyword': keyword,
+                'Country': keyword_data['Country'].iloc[0] if not keyword_data.empty else 'Unknown',
+                'Total Results': len(keyword_data),
+                'Recharge Position': recharge_data['Position'].min() if not recharge_data.empty else 'Not Ranking',
+                'Status': '✅ Ranking' if not recharge_data.empty else '❌ Not Ranking'
+            }
+            keyword_summary.append(summary)
+        
+        summary_df = pd.DataFrame(keyword_summary)
+        
+        # Sort by Recharge Position (ranking first, then not ranking)
+        summary_df['Sort_Key'] = summary_df['Recharge Position'].apply(
+            lambda x: x if isinstance(x, (int, float)) else 999
+        )
+        summary_df = summary_df.sort_values('Sort_Key').drop('Sort_Key', axis=1)
+        
+        # Format the position column
+        summary_df['Recharge Position'] = summary_df['Recharge Position'].apply(
+            lambda x: f"#{int(x)}" if isinstance(x, (int, float)) else x
+        )
+        
+        # Apply country flags
+        summary_df['Country'] = summary_df['Country'].apply(
+            lambda x: get_country_flag(x) if x != 'Unknown' else x
+        )
+        
+        st.dataframe(
+            summary_df,
+            use_container_width=True,
+            hide_index=True,
+            height=400
+        )
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Top Performing Keywords
+    st.markdown('<div class="section-title">🏆 Top Performing Keywords in LLM Results</div>', unsafe_allow_html=True)
+    
+    if not recharge_df.empty:
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+            st.markdown("**🥇 Best Positions**")
+            
+            # Get keywords where Recharge ranks in top 3
+            top_performers = recharge_df[recharge_df['Position'] <= 3].groupby('Keyword')['Position'].min().sort_values()
+            
+            if not top_performers.empty:
+                for keyword, position in top_performers.head(10).items():
+                    st.markdown(f"• **{keyword}**: Position #{int(position)}")
+            else:
+                st.info("No keywords ranking in top 3")
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+            st.markdown("**📈 Keywords Needing Improvement**")
+            
+            # Get keywords where Recharge ranks but not in top 3
+            needs_improvement = recharge_df[recharge_df['Position'] > 3].groupby('Keyword')['Position'].min().sort_values(ascending=False)
+            
+            if not needs_improvement.empty:
+                for keyword, position in needs_improvement.head(10).items():
+                    st.markdown(f"• **{keyword}**: Position #{int(position)}")
+            else:
+                st.info("All keywords ranking in top 3!")
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+
 def main():
     # Load data
     with st.spinner('Loading data...'):
         df = load_data_from_google_sheets()
+        llm_df = load_llm_data()
     
-    if df.empty:
+    if df.empty and llm_df.empty:
         st.markdown("""
         <div class="dashboard-header">
             <h1>🔋 Recharge.com SEO Dashboard</h1>
@@ -1158,21 +1435,29 @@ def main():
         st.info("Make sure the Google Sheet is shared publicly (Anyone with the link can view)")
         return
     
-    # Sidebar navigation
+    # Sidebar navigation - Updated with new option
     st.sidebar.markdown("### 📊 Navigation")
     
     page = st.sidebar.radio(
         "Select View:",
-        ["🏠 Executive Dashboard", "🎯 Keyword Analysis", "⚖️ SERP Comparison"],
+        ["🏠 Executive Dashboard", "🎯 Keyword Analysis", "⚖️ SERP Comparison", "🤖 LLM Position Tracking"],
         key="main_nav"
     )
     
     # Show data summary in sidebar
     st.sidebar.markdown("---")
     st.sidebar.markdown("**📈 Data Summary**")
-    st.sidebar.markdown(f"Total Records: {len(df)}")
-    if 'Keyword' in df.columns:
-        st.sidebar.markdown(f"Keywords: {df['Keyword'].nunique()}")
+    
+    if not df.empty:
+        st.sidebar.markdown(f"**Traditional SEO:**")
+        st.sidebar.markdown(f"Total Records: {len(df)}")
+        if 'Keyword' in df.columns:
+            st.sidebar.markdown(f"Keywords: {df['Keyword'].nunique()}")
+    
+    if not llm_df.empty:
+        st.sidebar.markdown(f"**LLM/AI Search:**")
+        st.sidebar.markdown(f"Total Results: {len(llm_df)}")
+        st.sidebar.markdown(f"Keywords: {llm_df['Keyword'].nunique()}")
     
     # Route to appropriate page
     if page == "🏠 Executive Dashboard":
@@ -1181,6 +1466,8 @@ def main():
         show_keyword_analysis(df)
     elif page == "⚖️ SERP Comparison":
         show_serp_comparison(df)
+    elif page == "🤖 LLM Position Tracking":
+        show_llm_position_tracking(llm_df)
 
 if __name__ == "__main__":
     main()
