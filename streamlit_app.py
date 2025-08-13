@@ -7,7 +7,6 @@ import datetime
 import numpy as np
 import re
 from urllib.parse import urlparse
-
 # Page configuration
 st.set_page_config(
     page_title="Recharge.com SEO Dashboard",
@@ -15,509 +14,304 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
-
-# Initialize theme in session state
-if 'theme' not in st.session_state:
-    st.session_state.theme = 'dark'
-
-def get_theme_css(theme='dark'):
-    """Get CSS styling based on selected theme"""
+# Dark theme CSS styling
+st.markdown("""
+<style>
+    /* Hide Streamlit elements */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
     
-    if theme == 'dark':
-        return """
-        <style>
-            /* Hide Streamlit elements */
-            #MainMenu {visibility: hidden;}
-            footer {visibility: hidden;}
-            header {visibility: hidden;}
-            
-            /* Dark theme styling */
-            .stApp {
-                background: #0f172a;
-                color: #f8fafc;
-            }
-            
-            .main .block-container {
-                padding-top: 2rem;
-                padding-bottom: 2rem;
-                max-width: 1200px;
-            }
-            
-            /* Header styling */
-            .dashboard-header {
-                background: #1e293b;
-                border: 1px solid #334155;
-                border-radius: 12px;
-                padding: 2rem;
-                margin-bottom: 2rem;
-                text-align: center;
-                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-            }
-            
-            .dashboard-header h1 {
-                font-size: 2.5rem;
-                font-weight: 700;
-                margin: 0;
-                color: #f8fafc;
-            }
-            
-            .dashboard-header p {
-                font-size: 1.1rem;
-                margin: 0.5rem 0 0 0;
-                color: #cbd5e1;
-            }
-            
-            /* Card styling */
-            .metric-card {
-                background: #1e293b;
-                border: 1px solid #334155;
-                border-radius: 12px;
-                padding: 1.5rem;
-                margin-bottom: 1rem;
-                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-                transition: transform 0.2s ease, box-shadow 0.2s ease;
-            }
-            
-            .metric-card:hover {
-                transform: translateY(-2px);
-                box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-                border-color: #475569;
-            }
-            
-            .metric-number {
-                font-size: 2.5rem;
-                font-weight: 700;
-                margin: 0;
-                color: #f8fafc;
-            }
-            
-            .metric-label {
-                font-size: 1rem;
-                margin: 0.5rem 0 0 0;
-                color: #cbd5e1;
-                font-weight: 500;
-            }
-            
-            .metric-change {
-                font-size: 0.9rem;
-                margin: 0.25rem 0 0 0;
-                font-weight: 600;
-            }
-            
-            .positive { color: #22c55e; }
-            .negative { color: #ef4444; }
-            .neutral { color: #f59e0b; }
-            
-            /* Section styling */
-            .section-title {
-                background: #1e293b;
-                border: 1px solid #334155;
-                border-radius: 8px;
-                padding: 1rem 1.5rem;
-                margin: 2rem 0 1rem 0;
-                color: #f8fafc;
-                font-size: 1.3rem;
-                font-weight: 600;
-                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-            }
-            
-            /* Sidebar styling */
-            .css-1d391kg, [data-testid="stSidebar"] {
-                background: #1e293b !important;
-                border-right: 1px solid #334155;
-            }
-            
-            /* Chart container */
-            .chart-container {
-                background: #1e293b;
-                border: 1px solid #334155;
-                border-radius: 12px;
-                padding: 1.5rem;
-                margin-bottom: 1rem;
-                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-            }
-            
-            /* SERP Result Styling */
-            .serp-column {
-                background: #1e293b;
-                border: 1px solid #334155;
-                border-radius: 12px;
-                padding: 1.5rem;
-                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-                margin-bottom: 1rem;
-            }
-            
-            .serp-header {
-                text-align: center;
-                font-size: 1.1rem;
-                font-weight: 600;
-                margin-bottom: 1.5rem;
-                padding-bottom: 0.5rem;
-                border-bottom: 2px solid #334155;
-                color: #f8fafc;
-            }
-            
-            .serp-result {
-                display: flex;
-                align-items: flex-start;
-                margin-bottom: 1rem;
-                padding: 1rem;
-                background: #0f172a;
-                border-radius: 8px;
-                border-left: 4px solid #64748b;
-                transition: all 0.2s ease;
-            }
-            
-            .serp-result:hover {
-                background: #1e293b;
-                transform: translateX(3px);
-            }
-            
-            .serp-result.recharge {
-                border-left-color: #f59e0b;
-                background: rgba(245, 158, 11, 0.1);
-            }
-            
-            .serp-result.improved {
-                border-left-color: #22c55e;
-                background: rgba(34, 197, 94, 0.1);
-            }
-            
-            .serp-result.declined {
-                border-left-color: #ef4444;
-                background: rgba(239, 68, 68, 0.1);
-            }
-            
-            .serp-result.new {
-                border-left-color: #3b82f6;
-                background: rgba(59, 130, 246, 0.1);
-            }
-            
-            .position-number {
-                min-width: 36px;
-                height: 36px;
-                border-radius: 50%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-weight: bold;
-                margin-right: 1rem;
-                font-size: 14px;
-                color: white;
-                background: #64748b;
-            }
-            
-            .result-content {
-                flex: 1;
-            }
-            
-            .result-title {
-                font-weight: 600;
-                margin-bottom: 0.3rem;
-                color: #f8fafc;
-                font-size: 0.95rem;
-                line-height: 1.3;
-            }
-            
-            .result-url {
-                font-size: 0.8rem;
-                color: #94a3b8;
-                word-break: break-all;
-                margin-bottom: 0.3rem;
-                line-height: 1.4;
-            }
-            
-            .result-badge {
-                display: inline-block;
-                padding: 0.2rem 0.5rem;
-                border-radius: 12px;
-                font-size: 0.7rem;
-                font-weight: bold;
-                margin-top: 0.3rem;
-                margin-right: 0.3rem;
-            }
-            
-            .badge-recharge { background: #f59e0b; color: white; }
-            .badge-improved { background: #22c55e; color: white; }
-            .badge-declined { background: #ef4444; color: white; }
-            .badge-new { background: #3b82f6; color: white; }
-            
-            /* Theme switcher styling */
-            .theme-switcher {
-                position: fixed;
-                top: 1rem;
-                right: 1rem;
-                z-index: 9999;
-                background: #1e293b;
-                border: 1px solid #334155;
-                border-radius: 8px;
-                padding: 0.5rem;
-                display: flex;
-                align-items: center;
-                gap: 0.5rem;
-                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-            }
-            
-            .theme-label {
-                color: #cbd5e1;
-                font-size: 0.9rem;
-            }
-        </style>
-        """
-    else:  # Light theme
-        return """
-        <style>
-            /* Hide Streamlit elements */
-            #MainMenu {visibility: hidden;}
-            footer {visibility: hidden;}
-            header {visibility: hidden;}
-            
-            /* Light theme styling */
-            .stApp {
-                background: #ffffff;
-                color: #1f2937;
-            }
-            
-            .main .block-container {
-                padding-top: 2rem;
-                padding-bottom: 2rem;
-                max-width: 1200px;
-            }
-            
-            /* Header styling */
-            .dashboard-header {
-                background: #f8fafc;
-                border: 1px solid #e5e7eb;
-                border-radius: 12px;
-                padding: 2rem;
-                margin-bottom: 2rem;
-                text-align: center;
-                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-            }
-            
-            .dashboard-header h1 {
-                font-size: 2.5rem;
-                font-weight: 700;
-                margin: 0;
-                color: #1f2937;
-            }
-            
-            .dashboard-header p {
-                font-size: 1.1rem;
-                margin: 0.5rem 0 0 0;
-                color: #6b7280;
-            }
-            
-            /* Card styling */
-            .metric-card {
-                background: #ffffff;
-                border: 1px solid #e5e7eb;
-                border-radius: 12px;
-                padding: 1.5rem;
-                margin-bottom: 1rem;
-                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-                transition: transform 0.2s ease, box-shadow 0.2s ease;
-            }
-            
-            .metric-card:hover {
-                transform: translateY(-2px);
-                box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-                border-color: #d1d5db;
-            }
-            
-            .metric-number {
-                font-size: 2.5rem;
-                font-weight: 700;
-                margin: 0;
-                color: #1f2937;
-            }
-            
-            .metric-label {
-                font-size: 1rem;
-                margin: 0.5rem 0 0 0;
-                color: #6b7280;
-                font-weight: 500;
-            }
-            
-            .metric-change {
-                font-size: 0.9rem;
-                margin: 0.25rem 0 0 0;
-                font-weight: 600;
-            }
-            
-            .positive { color: #16a34a; }
-            .negative { color: #dc2626; }
-            .neutral { color: #ea580c; }
-            
-            /* Section styling */
-            .section-title {
-                background: #f8fafc;
-                border: 1px solid #e5e7eb;
-                border-radius: 8px;
-                padding: 1rem 1.5rem;
-                margin: 2rem 0 1rem 0;
-                color: #1f2937;
-                font-size: 1.3rem;
-                font-weight: 600;
-                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-            }
-            
-            /* Sidebar styling */
-            .css-1d391kg, [data-testid="stSidebar"] {
-                background: #f8fafc !important;
-                border-right: 1px solid #e5e7eb;
-            }
-            
-            [data-testid="stSidebar"] * {
-                color: #1f2937 !important;
-            }
-            
-            /* Chart container */
-            .chart-container {
-                background: #ffffff;
-                border: 1px solid #e5e7eb;
-                border-radius: 12px;
-                padding: 1.5rem;
-                margin-bottom: 1rem;
-                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-            }
-            
-            /* SERP Result Styling */
-            .serp-column {
-                background: #ffffff;
-                border: 1px solid #e5e7eb;
-                border-radius: 12px;
-                padding: 1.5rem;
-                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-                margin-bottom: 1rem;
-            }
-            
-            .serp-header {
-                text-align: center;
-                font-size: 1.1rem;
-                font-weight: 600;
-                margin-bottom: 1.5rem;
-                padding-bottom: 0.5rem;
-                border-bottom: 2px solid #e5e7eb;
-                color: #1f2937;
-            }
-            
-            .serp-result {
-                display: flex;
-                align-items: flex-start;
-                margin-bottom: 1rem;
-                padding: 1rem;
-                background: #f9fafb;
-                border-radius: 8px;
-                border-left: 4px solid #9ca3af;
-                transition: all 0.2s ease;
-            }
-            
-            .serp-result:hover {
-                background: #f3f4f6;
-                transform: translateX(3px);
-            }
-            
-            .serp-result.recharge {
-                border-left-color: #f59e0b;
-                background: rgba(251, 191, 36, 0.08);
-            }
-            
-            .serp-result.improved {
-                border-left-color: #16a34a;
-                background: rgba(22, 163, 74, 0.08);
-            }
-            
-            .serp-result.declined {
-                border-left-color: #dc2626;
-                background: rgba(220, 38, 38, 0.08);
-            }
-            
-            .serp-result.new {
-                border-left-color: #2563eb;
-                background: rgba(37, 99, 235, 0.08);
-            }
-            
-            .position-number {
-                min-width: 36px;
-                height: 36px;
-                border-radius: 50%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-weight: bold;
-                margin-right: 1rem;
-                font-size: 14px;
-                color: white;
-                background: #6b7280;
-            }
-            
-            .result-content {
-                flex: 1;
-            }
-            
-            .result-title {
-                font-weight: 600;
-                margin-bottom: 0.3rem;
-                color: #1f2937;
-                font-size: 0.95rem;
-                line-height: 1.3;
-            }
-            
-            .result-url {
-                font-size: 0.8rem;
-                color: #6b7280;
-                word-break: break-all;
-                margin-bottom: 0.3rem;
-                line-height: 1.4;
-            }
-            
-            .result-badge {
-                display: inline-block;
-                padding: 0.2rem 0.5rem;
-                border-radius: 12px;
-                font-size: 0.7rem;
-                font-weight: bold;
-                margin-top: 0.3rem;
-                margin-right: 0.3rem;
-            }
-            
-            .badge-recharge { background: #f59e0b; color: white; }
-            .badge-improved { background: #16a34a; color: white; }
-            .badge-declined { background: #dc2626; color: white; }
-            .badge-new { background: #2563eb; color: white; }
-            
-            /* Light theme dataframe styling */
-            .stDataFrame {
-                background-color: #ffffff !important;
-            }
-            
-            /* Theme switcher styling */
-            .theme-switcher {
-                position: fixed;
-                top: 1rem;
-                right: 1rem;
-                z-index: 9999;
-                background: #ffffff;
-                border: 1px solid #e5e7eb;
-                border-radius: 8px;
-                padding: 0.5rem;
-                display: flex;
-                align-items: center;
-                gap: 0.5rem;
-                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            }
-            
-            .theme-label {
-                color: #6b7280;
-                font-size: 0.9rem;
-            }
-        </style>
-        """
-
-# Apply the selected theme CSS
-st.markdown(get_theme_css(st.session_state.theme), unsafe_allow_html=True)
-
+    /* Dark theme styling */
+    .stApp {
+        background: #0f172a;
+        color: #f8fafc;
+    }
+    
+    .main .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+        max-width: 1200px;
+    }
+    
+    /* Header styling */
+    .dashboard-header {
+        background: #1e293b;
+        border: 1px solid #334155;
+        border-radius: 12px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        text-align: center;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    }
+    
+    .dashboard-header h1 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin: 0;
+        color: #f8fafc;
+    }
+    
+    .dashboard-header p {
+        font-size: 1.1rem;
+        margin: 0.5rem 0 0 0;
+        color: #cbd5e1;
+    }
+    
+    /* Card styling */
+    .metric-card {
+        background: #1e293b;
+        border: 1px solid #334155;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .metric-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+        border-color: #475569;
+    }
+    
+    .metric-number {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin: 0;
+        color: #f8fafc;
+    }
+    
+    .metric-label {
+        font-size: 1rem;
+        margin: 0.5rem 0 0 0;
+        color: #cbd5e1;
+        font-weight: 500;
+    }
+    
+    .metric-change {
+        font-size: 0.9rem;
+        margin: 0.25rem 0 0 0;
+        font-weight: 600;
+    }
+    
+    .positive { color: #22c55e; }
+    .negative { color: #ef4444; }
+    .neutral { color: #f59e0b; }
+    
+    /* Section styling */
+    .section-title {
+        background: #1e293b;
+        border: 1px solid #334155;
+        border-radius: 8px;
+        padding: 1rem 1.5rem;
+        margin: 2rem 0 1rem 0;
+        color: #f8fafc;
+        font-size: 1.3rem;
+        font-weight: 600;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+    
+    /* Sidebar styling */
+    .css-1d391kg {
+        background: #1e293b !important;
+        border-right: 1px solid #334155;
+    }
+    
+    .css-1d391kg .stMarkdown {
+        color: #f8fafc !important;
+    }
+    
+    .css-1d391kg .stRadio > label {
+        color: #f8fafc !important;
+    }
+    
+    /* Button styling */
+    .stButton > button {
+        background: #374151;
+        color: #f8fafc;
+        border: 1px solid #4b5563;
+        border-radius: 8px;
+        padding: 0.5rem 1.5rem;
+        font-weight: 500;
+        transition: all 0.2s ease;
+    }
+    
+    .stButton > button:hover {
+        background: #4b5563;
+        border-color: #6b7280;
+    }
+    
+    /* Chart container */
+    .chart-container {
+        background: #1e293b;
+        border: 1px solid #334155;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    }
+    
+    /* SERP Result Styling */
+    .serp-column {
+        background: #1e293b;
+        border: 1px solid #334155;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+        margin-bottom: 1rem;
+    }
+    
+    .serp-header {
+        text-align: center;
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin-bottom: 1.5rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #334155;
+        color: #f8fafc;
+    }
+    
+    .serp-result {
+        display: flex;
+        align-items: flex-start;
+        margin-bottom: 1rem;
+        padding: 1rem;
+        background: #0f172a;
+        border-radius: 8px;
+        border-left: 4px solid #64748b;
+        transition: all 0.2s ease;
+    }
+    
+    .serp-result:hover {
+        background: #1e293b;
+        transform: translateX(3px);
+    }
+    
+    .serp-result.recharge {
+        border-left-color: #f59e0b;
+        background: rgba(245, 158, 11, 0.1);
+    }
+    
+    .serp-result.improved {
+        border-left-color: #22c55e;
+        background: rgba(34, 197, 94, 0.1);
+    }
+    
+    .serp-result.declined {
+        border-left-color: #ef4444;
+        background: rgba(239, 68, 68, 0.1);
+    }
+    
+    .serp-result.new {
+        border-left-color: #3b82f6;
+        background: rgba(59, 130, 246, 0.1);
+    }
+    
+    .position-number {
+        min-width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        margin-right: 1rem;
+        font-size: 14px;
+        color: white;
+        background: #64748b;
+    }
+    
+    .result-content {
+        flex: 1;
+    }
+    
+    .result-title {
+        font-weight: 600;
+        margin-bottom: 0.3rem;
+        color: #f8fafc;
+        font-size: 0.95rem;
+        line-height: 1.3;
+    }
+    
+    .result-url {
+        font-size: 0.8rem;
+        color: #94a3b8;
+        word-break: break-all;
+        margin-bottom: 0.3rem;
+        line-height: 1.4;
+    }
+    
+    .result-badge {
+        display: inline-block;
+        padding: 0.2rem 0.5rem;
+        border-radius: 12px;
+        font-size: 0.7rem;
+        font-weight: bold;
+        margin-top: 0.3rem;
+        margin-right: 0.3rem;
+    }
+    
+    .badge-recharge {
+        background: #f59e0b;
+        color: white;
+    }
+    
+    .badge-improved {
+        background: #22c55e;
+        color: white;
+    }
+    
+    .badge-declined {
+        background: #ef4444;
+        color: white;
+    }
+    
+    .badge-new {
+        background: #3b82f6;
+        color: white;
+    }
+    
+    /* Streamlit specific overrides for dark theme */
+    .stSelectbox > div > div > div {
+        background-color: #374151 !important;
+        border-color: #4b5563 !important;
+        color: #f8fafc !important;
+    }
+    
+    .stSelectbox > div > div > div > div {
+        color: #f8fafc !important;
+    }
+    
+    .stTextArea > div > div > textarea {
+        background-color: #374151 !important;
+        border-color: #4b5563 !important;
+        color: #f8fafc !important;
+    }
+    
+    .stDataFrame {
+        background-color: #1e293b !important;
+    }
+    
+    .stDataFrame [data-testid="stDataFrame"] {
+        background-color: #1e293b !important;
+    }
+    
+    /* Radio button styling */
+    .stRadio > div {
+        background-color: transparent !important;
+    }
+    
+    .stRadio > div > label {
+        color: #f8fafc !important;
+    }
+    
+    .stRadio > div > label > div > div {
+        background-color: #374151 !important;
+        border-color: #4b5563 !important;
+    }
+</style>
+""", unsafe_allow_html=True)
 # Utility functions
 def clean_html_from_url(url):
     """Clean all HTML artifacts from URLs"""
@@ -545,7 +339,6 @@ def clean_html_from_url(url):
     url = url.replace('"', '').replace("'", '').replace('>', '').replace('<', '').strip()
     
     return url
-
 def get_country_flag(location_code):
     """Get country flag emoji from location code"""
     flag_map = {
@@ -561,7 +354,6 @@ def get_country_flag(location_code):
         'nl': '🇳🇱 Netherlands'
     }
     return flag_map.get(location_code.lower(), f'{location_code.upper()}')
-
 def get_position_status(position):
     """Get position status and color"""
     if pd.isna(position) or position == '' or str(position).lower() in ['not ranking', 'lost']:
@@ -576,13 +368,11 @@ def get_position_status(position):
             return f'#{pos}', '#ef4444'
     except:
         return str(position), '#64748b'
-
 def has_ai_overview(ai_content):
     """Check if AI Overview content exists"""
     if pd.isna(ai_content) or not ai_content or str(ai_content) == '#ERROR!' or str(ai_content).strip() == '':
         return False
     return True
-
 @st.cache_data(ttl=60)
 def load_data_from_google_sheets():
     """Load data directly from the specified Google Sheets using GIDs from Main sheet"""
@@ -659,7 +449,6 @@ def load_data_from_google_sheets():
     except Exception as e:
         st.error(f"Error loading data: {str(e)}")
         return pd.DataFrame()
-
 @st.cache_data(ttl=60)
 def load_llm_data():
     """Load LLM position tracking data from Excel file or Google Sheets"""
@@ -750,7 +539,6 @@ def load_llm_data():
     except Exception as e:
         st.error(f"Error loading LLM data: {str(e)}")
         return pd.DataFrame()
-
 def parse_excel_datetime(date_val):
     """Parse datetime from various formats"""
     if pd.isna(date_val):
@@ -790,7 +578,6 @@ def parse_excel_datetime(date_val):
             continue
     
     return pd.NaT
-
 def create_metric_card(title, value, change=None, format_as_percent=False):
     """Create a metric card component"""
     change_class = ""
@@ -814,26 +601,6 @@ def create_metric_card(title, value, change=None, format_as_percent=False):
         {f'<div class="metric-change {change_class}">{change_text}</div>' if change_text else ''}
     </div>
     """
-
-def get_plotly_theme_config(theme='dark'):
-    """Get Plotly configuration based on theme"""
-    if theme == 'dark':
-        return {
-            'paper_bgcolor': 'rgba(0,0,0,0)',
-            'plot_bgcolor': 'rgba(0,0,0,0)',
-            'font_color': '#f8fafc',
-            'title_font_color': '#f8fafc',
-            'gridcolor': '#334155'
-        }
-    else:
-        return {
-            'paper_bgcolor': 'rgba(0,0,0,0)',
-            'plot_bgcolor': 'rgba(0,0,0,0)',
-            'font_color': '#1f2937',
-            'title_font_color': '#1f2937',
-            'gridcolor': '#e5e7eb'
-        }
-
 def show_executive_dashboard(df_processed):
     """Executive-level dashboard view"""
     
@@ -895,9 +662,6 @@ def show_executive_dashboard(df_processed):
     
     col1, col2 = st.columns(2)
     
-    # Get theme config for Plotly
-    theme_config = get_plotly_theme_config(st.session_state.theme)
-    
     with col1:
         # Position Distribution Chart
         st.markdown('<div class="chart-container">', unsafe_allow_html=True)
@@ -927,8 +691,11 @@ def show_executive_dashboard(df_processed):
         
         fig_pie.update_layout(
             height=350,
-            **theme_config,
-            title_font_size=16
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            font_color='#f8fafc',
+            title_font_size=16,
+            title_font_color='#f8fafc'
         )
         
         st.plotly_chart(fig_pie, use_container_width=True)
@@ -959,8 +726,11 @@ def show_executive_dashboard(df_processed):
                     height=350,
                     yaxis_title="Average Position (Lower is Better)",
                     yaxis=dict(autorange="reversed"),
-                    **theme_config,
-                    title_font_size=16
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    font_color='#f8fafc',
+                    title_font_size=16,
+                    title_font_color='#f8fafc'
                 )
                 
                 st.plotly_chart(fig_bar, use_container_width=True)
@@ -1001,7 +771,6 @@ def show_executive_dashboard(df_processed):
             )
         
         st.markdown('</div>', unsafe_allow_html=True)
-
 def show_keyword_analysis(df_processed):
     """Detailed keyword analysis view"""
     
@@ -1071,9 +840,6 @@ def show_keyword_analysis(df_processed):
         plot_data = plot_data.dropna(subset=['Position_Numeric'])
         
         if not plot_data.empty:
-            # Get theme config
-            theme_config = get_plotly_theme_config(st.session_state.theme)
-            
             fig = px.line(
                 plot_data,
                 x='DateTime',
@@ -1087,8 +853,10 @@ def show_keyword_analysis(df_processed):
                 height=400,
                 yaxis=dict(autorange="reversed", title="Search Position"),
                 xaxis_title="Date",
-                **theme_config,
-                title_font_size=16
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font_color='#f8fafc',
+                title_font_color='#f8fafc'
             )
             
             # Add reference lines
@@ -1107,7 +875,6 @@ def show_keyword_analysis(df_processed):
             st.info("No numeric position data available for trend analysis.")
         
         st.markdown('</div>', unsafe_allow_html=True)
-
 def show_serp_comparison(df_processed):
     """Professional SERP comparison view - Top 5 results only"""
     
@@ -1330,9 +1097,155 @@ def show_serp_comparison(df_processed):
         </div>
         """, unsafe_allow_html=True)
     
-    # Continue with rest of the function...
-    # (The rest of the function remains the same)
-
+    # Side-by-side SERP comparison (Top 5 only)
+    st.markdown('<div class="section-title">🔍 Top 5 SERP Results Comparison</div>', unsafe_allow_html=True)
+    
+    # Create side-by-side comparison using columns
+    col_left, col_right = st.columns(2)
+    
+    with col_left:
+        st.markdown(f"""
+        <div class="serp-column">
+            <div class="serp-header">📅 {selected_dt1.strftime('%b %d, %Y at %I:%M %p')}</div>
+        """, unsafe_allow_html=True)
+        
+        # Show baseline SERP results (Top 5)
+        for position in range(1, 6):
+            if position in serp1:
+                result = serp1[position]
+                result_class = "recharge" if result['is_recharge'] else ""
+                position_color = "#f59e0b" if result['is_recharge'] else "#64748b"
+                
+                st.markdown(f"""
+                <div class="serp-result {result_class}">
+                    <div class="position-number" style="background: {position_color};">
+                        {position}
+                    </div>
+                    <div class="result-content">
+                        <div class="result-title">{result['title']}</div>
+                        <div class="result-url">{result['url'][:60]}{'...' if len(result['url']) > 60 else ''}</div>
+                        {'<span class="result-badge badge-recharge">🔋 Recharge.com</span>' if result['is_recharge'] else ''}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                <div class="serp-result" style="opacity: 0.3;">
+                    <div class="position-number" style="background: #64748b;">
+                        {position}
+                    </div>
+                    <div class="result-content">
+                        <div class="result-title">No result</div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+        
+        st.markdown("</div>", unsafe_allow_html=True)
+    
+    with col_right:
+        st.markdown(f"""
+        <div class="serp-column">
+            <div class="serp-header">📅 {selected_dt2.strftime('%b %d, %Y at %I:%M %p')}</div>
+        """, unsafe_allow_html=True)
+        
+        # Show comparison SERP results with change indicators (Top 5)
+        for position in range(1, 6):
+            if position in serp2:
+                result = serp2[position]
+                url = result['url']
+                movement = url_movements.get(url, {})
+                pos1 = movement.get('pos1')
+                pos2 = movement.get('pos2')
+                
+                # Determine change type and styling
+                if pos1 is None:
+                    change_class = "new"
+                    change_text = "🆕 NEW"
+                    change_color = "#3b82f6"
+                elif pos1 and pos2 and pos1 > pos2:
+                    change_class = "improved"
+                    change_text = f"📈 +{pos1 - pos2}"
+                    change_color = "#22c55e"
+                elif pos1 and pos2 and pos1 < pos2:
+                    change_class = "declined"
+                    change_text = f"📉 -{pos2 - pos1}"
+                    change_color = "#ef4444"
+                else:
+                    change_class = "recharge" if result['is_recharge'] else ""
+                    change_text = ""
+                    change_color = "#f59e0b" if result['is_recharge'] else "#64748b"
+                
+                st.markdown(f"""
+                <div class="serp-result {change_class}">
+                    <div class="position-number" style="background: {change_color};">
+                        {position}
+                    </div>
+                    <div class="result-content">
+                        <div class="result-title">{result['title']}</div>
+                        <div class="result-url">{result['url'][:60]}{'...' if len(result['url']) > 60 else ''}</div>
+                        {'<span class="result-badge badge-recharge">🔋 Recharge.com</span>' if result['is_recharge'] else ''}
+                        {f'<span class="result-badge badge-{change_class}">{change_text}</span>' if change_text else ''}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                <div class="serp-result" style="opacity: 0.3;">
+                    <div class="position-number" style="background: #64748b;">
+                        {position}
+                    </div>
+                    <div class="result-content">
+                        <div class="result-title">No result</div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+        
+        st.markdown("</div>", unsafe_allow_html=True)
+    
+    # AI Overview Comparison
+    st.markdown('<div class="section-title">🤖 AI Overview Comparison</div>', unsafe_allow_html=True)
+    
+    col_ai1, col_ai2 = st.columns(2)
+    
+    with col_ai1:
+        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+        st.markdown(f'**📅 {selected_dt1.strftime("%b %d, %Y at %I:%M %p")}**')
+        
+        ai_content1 = data1.get('AI Overview', '')
+        if has_ai_overview(ai_content1):
+            st.markdown("**🤖 AI Overview Present**")
+            st.text_area(
+                "AI Overview Content",
+                str(ai_content1),
+                height=200,
+                key="ai_content_1",
+                label_visibility="collapsed"
+            )
+        else:
+            st.markdown("**❌ No AI Overview**")
+            st.info("No AI Overview content was present at this time.")
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    with col_ai2:
+        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+        st.markdown(f'**📅 {selected_dt2.strftime("%b %d, %Y at %I:%M %p")}**')
+        
+        ai_content2 = data2.get('AI Overview', '')
+        if has_ai_overview(ai_content2):
+            st.markdown("**🤖 AI Overview Present**")
+            st.text_area(
+                "AI Overview Content",
+                str(ai_content2),
+                height=200,
+                key="ai_content_2",
+                label_visibility="collapsed"
+            )
+        else:
+            st.markdown("**❌ No AI Overview**")
+            st.info("No AI Overview content was present at this time.")
+        
+        st.markdown('</div>', unsafe_allow_html=True)
 def show_llm_position_tracking(llm_df):
     """Show LLM/ChatGPT position tracking dashboard"""
     
@@ -1442,29 +1355,854 @@ def show_llm_position_tracking(llm_df):
         avg_position = round(recharge_df['Position'].mean(), 1) if not recharge_df.empty else 'N/A'
         st.markdown(create_metric_card("Avg Position", avg_position), unsafe_allow_html=True)
     
-    # Continue with rest of the LLM tracking function...
-    # (The rest of the function remains the same)
-
+    # Charts Section
+    st.markdown('<div class="section-title">📊 LLM Performance Analytics</div>', unsafe_allow_html=True)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        # Position Distribution for Recharge
+        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+        
+        if not recharge_df.empty:
+            position_counts = recharge_df['Position'].value_counts().sort_index()
+            
+            fig_bar = px.bar(
+                x=position_counts.index,
+                y=position_counts.values,
+                title="Recharge.com Position Distribution in LLM Results",
+                labels={'x': 'Position', 'y': 'Frequency'},
+                color=position_counts.values,
+                color_continuous_scale=['#ef4444', '#f59e0b', '#22c55e'][::-1]
+            )
+            
+            fig_bar.update_layout(
+                height=350,
+                showlegend=False,
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font_color='#f8fafc',
+                title_font_size=16,
+                title_font_color='#f8fafc'
+            )
+            
+            st.plotly_chart(fig_bar, use_container_width=True)
+        else:
+            st.info("No Recharge.com entries found in LLM results")
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    with col2:
+        # Country Performance
+        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+        
+        if not recharge_df.empty and 'Country' in recharge_df.columns:
+            country_stats = recharge_df.groupby('Country').agg({
+                'Position': 'mean',
+                'Keyword': 'nunique'
+            }).round(1)
+            country_stats.columns = ['Avg Position', 'Keywords']
+            
+            # Create grouped bar chart
+            fig = go.Figure()
+            
+            fig.add_trace(go.Bar(
+                name='Keywords',
+                x=country_stats.index,
+                y=country_stats['Keywords'],
+                yaxis='y',
+                marker_color='#3b82f6',
+                text=country_stats['Keywords'],
+                textposition='auto',
+            ))
+            
+            fig.add_trace(go.Bar(
+                name='Avg Position',
+                x=country_stats.index,
+                y=country_stats['Avg Position'],
+                yaxis='y2',
+                marker_color='#f59e0b',
+                text=country_stats['Avg Position'],
+                textposition='auto',
+            ))
+            
+            fig.update_layout(
+                title="LLM Performance by Country",
+                height=350,
+                yaxis=dict(title='Keywords', side='left'),
+                yaxis2=dict(title='Avg Position', overlaying='y', side='right'),
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font_color='#f8fafc',
+                title_font_size=16,
+                title_font_color='#f8fafc',
+                showlegend=True,
+                legend=dict(x=0, y=1, bgcolor='rgba(0,0,0,0)')
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("No country data available")
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Individual Keyword Time Analysis
+    st.markdown('<div class="section-title">📈 Keyword Position Trends Over Time</div>', unsafe_allow_html=True)
+    
+    if not filtered_df.empty and not filtered_df['DateTime'].isna().all():
+        # Keyword selector for time analysis
+        col1, col2 = st.columns([3, 1])
+        
+        with col1:
+            selected_keyword_for_trend = st.selectbox(
+                "Select keyword to analyze position trend:",
+                sorted(all_keywords),
+                key="llm_keyword_trend_selector"
+            )
+        
+        with col2:
+            show_all_results = st.checkbox(
+                "Show all results",
+                key="llm_show_all_results",
+                help="Show all search results, not just Recharge.com"
+            )
+        
+        if selected_keyword_for_trend:
+            st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+            
+            # Filter data for selected keyword
+            keyword_trend_data = filtered_df[
+                filtered_df['Keyword'] == selected_keyword_for_trend
+            ].copy()
+            
+            if not keyword_trend_data['DateTime'].isna().all():
+                # Group by datetime and get Recharge position
+                keyword_trend_data = keyword_trend_data.sort_values('DateTime')
+                
+                if show_all_results:
+                    # Show all top positions over time
+                    trend_data = keyword_trend_data.groupby(['DateTime', 'Result_URL'])['Position'].min().reset_index()
+                    
+                    # Create line chart for multiple URLs
+                    fig_trend = px.line(
+                        trend_data,
+                        x='DateTime',
+                        y='Position',
+                        color='Result_URL',
+                        title=f'Position Trends: {selected_keyword_for_trend}',
+                        markers=True,
+                        line_shape='linear'
+                    )
+                    
+                    # Customize traces
+                    for trace in fig_trend.data:
+                        if 'recharge.com' in trace.name.lower():
+                            trace.line.width = 4
+                            trace.line.color = '#f59e0b'
+                            trace.name = '🔋 Recharge.com'
+                        else:
+                            trace.line.width = 2
+                            trace.showlegend = False
+                else:
+                    # Show only Recharge.com positions
+                    recharge_trend = keyword_trend_data[
+                        keyword_trend_data['Result_URL'].str.contains('recharge.com', case=False, na=False)
+                    ]
+                    
+                    if not recharge_trend.empty:
+                        trend_summary = recharge_trend.groupby('DateTime')['Position'].min().reset_index()
+                        
+                        fig_trend = px.line(
+                            trend_summary,
+                            x='DateTime',
+                            y='Position',
+                            title=f'Recharge.com Position Trend: {selected_keyword_for_trend}',
+                            markers=True,
+                            line_shape='spline'
+                        )
+                        
+                        fig_trend.update_traces(
+                            line=dict(width=3, color='#f59e0b'),
+                            marker=dict(size=10, color='#f59e0b')
+                        )
+                    else:
+                        st.info(f"Recharge.com not found in results for '{selected_keyword_for_trend}'")
+                        fig_trend = None
+                
+                if fig_trend:
+                    fig_trend.update_layout(
+                        height=400,
+                        yaxis=dict(
+                            autorange="reversed",
+                            title="Search Position",
+                            dtick=1,
+                            range=[0.5, 10.5]
+                        ),
+                        xaxis_title="Date/Time",
+                        paper_bgcolor='rgba(0,0,0,0)',
+                        plot_bgcolor='rgba(0,0,0,0)',
+                        font_color='#f8fafc',
+                        title_font_size=16,
+                        title_font_color='#f8fafc',
+                        hovermode='x unified'
+                    )
+                    
+                    # Add reference lines
+                    fig_trend.add_hline(
+                        y=3.5, 
+                        line_dash="dash", 
+                        line_color="rgba(34, 197, 94, 0.5)",
+                        annotation_text="Top 3"
+                    )
+                    
+                    st.plotly_chart(fig_trend, use_container_width=True)
+            else:
+                st.info("No time data available for this keyword")
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Keyword Performance Table
+    st.markdown('<div class="section-title">🔍 Keyword-Level LLM Performance</div>', unsafe_allow_html=True)
+    
+    if not filtered_df.empty:
+        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+        
+        # Create summary by keyword
+        keyword_summary = []
+        
+        for keyword in all_keywords:
+            keyword_data = filtered_df[filtered_df['Keyword'] == keyword]
+            recharge_data = keyword_data[keyword_data['Result_URL'].str.contains('recharge.com', na=False, case=False)]
+            
+            # Get latest position if multiple entries
+            latest_position = recharge_data.sort_values('DateTime', na_position='last')['Position'].iloc[-1] if not recharge_data.empty else None
+            
+            # Calculate position change if we have time data
+            position_change = None
+            if not recharge_data.empty and len(recharge_data) > 1:
+                sorted_data = recharge_data.sort_values('DateTime', na_position='last')
+                if len(sorted_data) >= 2:
+                    latest = sorted_data['Position'].iloc[-1]
+                    previous = sorted_data['Position'].iloc[-2]
+                    position_change = previous - latest
+            
+            summary = {
+                'Keyword': keyword,
+                'Country': keyword_data['Country'].iloc[0] if not keyword_data.empty else 'Unknown',
+                'Total Results': len(keyword_data['Result_URL'].unique()),
+                'Recharge Position': latest_position if latest_position else 'Not Ranking',
+                'Change': f"+{position_change}" if position_change and position_change > 0 else f"{position_change}" if position_change else "-",
+                'Status': '✅ Ranking' if latest_position else '❌ Not Ranking'
+            }
+            keyword_summary.append(summary)
+        
+        summary_df = pd.DataFrame(keyword_summary)
+        
+        # Sort by Recharge Position (ranking first, then not ranking)
+        summary_df['Sort_Key'] = summary_df['Recharge Position'].apply(
+            lambda x: x if isinstance(x, (int, float)) else 999
+        )
+        summary_df = summary_df.sort_values('Sort_Key').drop('Sort_Key', axis=1)
+        
+        # Format the position column
+        summary_df['Recharge Position'] = summary_df['Recharge Position'].apply(
+            lambda x: f"#{int(x)}" if isinstance(x, (int, float)) else x
+        )
+        
+        # Apply country flags
+        summary_df['Country'] = summary_df['Country'].apply(
+            lambda x: get_country_flag(x) if x != 'Unknown' else x
+        )
+        
+        st.dataframe(
+            summary_df,
+            use_container_width=True,
+            hide_index=True,
+            height=400
+        )
+        
+        # Export button
+        csv = summary_df.to_csv(index=False)
+        st.download_button(
+            label="📥 Download CSV",
+            data=csv,
+            file_name=f"llm_position_tracking_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            mime="text/csv"
+        )
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Top Performing Keywords
+    st.markdown('<div class="section-title">🏆 Top Performing Keywords in LLM Results</div>', unsafe_allow_html=True)
+    
+    if not recharge_df.empty:
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+            st.markdown("**🥇 Best Positions**")
+            
+            # Get keywords where Recharge ranks in top 3
+            top_performers = recharge_df[recharge_df['Position'] <= 3].groupby('Keyword')['Position'].min().sort_values()
+            
+            if not top_performers.empty:
+                for keyword, position in top_performers.head(10).items():
+                    country = recharge_df[recharge_df['Keyword'] == keyword]['Country'].iloc[0]
+                    country_flag = get_country_flag(country)
+                    st.markdown(f"• **{keyword}** ({country_flag}): Position #{int(position)}")
+            else:
+                st.info("No keywords ranking in top 3")
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+            st.markdown("**📈 Keywords Needing Improvement**")
+            
+            # Get keywords where Recharge ranks but not in top 3
+            needs_improvement = recharge_df[recharge_df['Position'] > 3].groupby('Keyword')['Position'].min().sort_values(ascending=False)
+            
+            if not needs_improvement.empty:
+                for keyword, position in needs_improvement.head(10).items():
+                    country = recharge_df[recharge_df['Keyword'] == keyword]['Country'].iloc[0]
+                    country_flag = get_country_flag(country)
+                    st.markdown(f"• **{keyword}** ({country_flag}): Position #{int(position)}")
+            else:
+                st.info("All keywords ranking in top 3!")
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Compact Position Matrix View
+    st.markdown('<div class="section-title">📋 All Keywords Position Matrix (Top 5)</div>', unsafe_allow_html=True)
+    
+    if not filtered_df.empty:
+        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+        
+        # Create matrix data for all keywords
+        matrix_data = []
+        
+        for keyword in sorted(all_keywords):
+            keyword_data = filtered_df[filtered_df['Keyword'] == keyword].copy()
+            
+            # Clean URLs in keyword data
+            keyword_data['Result_URL'] = keyword_data['Result_URL'].apply(clean_html_from_url)
+            
+            # Remove invalid URLs
+            keyword_data = keyword_data[
+                (keyword_data['Result_URL'].notna()) & 
+                (keyword_data['Result_URL'] != '') &
+                (keyword_data['Result_URL'].str.startswith('http'))
+            ]
+            
+            # Get latest data if datetime available
+            if not keyword_data['DateTime'].isna().all():
+                latest_time = keyword_data['DateTime'].max()
+                keyword_data = keyword_data[keyword_data['DateTime'] == latest_time]
+            
+            # Remove duplicates - keep only first URL for each position
+            keyword_data = keyword_data.drop_duplicates(subset=['Position'], keep='first')
+            
+            # Get top 5 positions
+            top_5 = keyword_data[keyword_data['Position'] <= 5].sort_values('Position')
+            
+            # Create row data
+            row_data = {
+                'Keyword': keyword,
+                'Country': get_country_flag(keyword_data['Country'].iloc[0]) if not keyword_data.empty else 'Unknown'
+            }
+            
+            # Add position columns with clean URLs only
+            for pos in range(1, 6):
+                pos_data = top_5[top_5['Position'] == pos]
+                if not pos_data.empty:
+                    url = pos_data['Result_URL'].iloc[0]
+                    # Show full URL, truncate if very long
+                    row_data[f'Pos {pos}'] = url if len(url) <= 100 else url[:97] + "..."
+                else:
+                    row_data[f'Pos {pos}'] = "-"
+            
+            # Add Recharge position
+            recharge_pos = keyword_data[
+                keyword_data['Result_URL'].str.contains('recharge.com', case=False, na=False)
+            ]['Position'].min()
+            
+            if pd.notna(recharge_pos):
+                row_data['Recharge Pos'] = f"#{int(recharge_pos)}"
+            else:
+                row_data['Recharge Pos'] = "Not Ranking"
+            
+            matrix_data.append(row_data)
+        
+        # Create DataFrame
+        matrix_df = pd.DataFrame(matrix_data)
+        
+        # Sort by Recharge position
+        matrix_df['Sort_Key'] = matrix_df['Recharge Pos'].apply(
+            lambda x: int(x.replace('#', '')) if x.startswith('#') else 999
+        )
+        matrix_df = matrix_df.sort_values('Sort_Key').drop('Sort_Key', axis=1)
+        
+        # Display the matrix with custom column configuration for better readability
+        st.dataframe(
+            matrix_df,
+            use_container_width=True,
+            hide_index=True,
+            height=min(600, 40 * len(matrix_df) + 50),
+            column_config={
+                "Keyword": st.column_config.TextColumn("Keyword", width="small"),
+                "Country": st.column_config.TextColumn("Country", width="small"),
+                "Pos 1": st.column_config.TextColumn("Position 1", width="large"),
+                "Pos 2": st.column_config.TextColumn("Position 2", width="large"),
+                "Pos 3": st.column_config.TextColumn("Position 3", width="large"),
+                "Pos 4": st.column_config.TextColumn("Position 4", width="large"),
+                "Pos 5": st.column_config.TextColumn("Position 5", width="large"),
+                "Recharge Pos": st.column_config.TextColumn("Recharge", width="small")
+            }
+        )
+        
+        # Summary stats
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            ranking_count = len([x for x in matrix_df['Recharge Pos'] if x != 'Not Ranking'])
+            st.metric("Keywords with Recharge", f"{ranking_count}/{len(matrix_df)}")
+        
+        with col2:
+            top_3_count = len([x for x in matrix_df['Recharge Pos'] if x.startswith('#') and int(x[1:]) <= 3])
+            st.metric("In Top 3", top_3_count)
+        
+        with col3:
+            pos_1_count = len([x for x in matrix_df['Recharge Pos'] if x == '#1'])
+            st.metric("Position #1", pos_1_count)
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Complete Position Rankings by Keyword
+    st.markdown('<div class="section-title">🎯 Complete Position Rankings by Keyword</div>', unsafe_allow_html=True)
+    
+    if not filtered_df.empty:
+        # Keyword selector for detailed SERP view
+        col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
+        
+        with col1:
+            selected_keyword_detail = st.selectbox(
+                "Select keyword to see all positions:",
+                sorted(all_keywords),
+                key="llm_keyword_detail_selector"
+            )
+        
+        with col2:
+            max_positions = st.slider(
+                "Show top N positions:",
+                min_value=5,
+                max_value=30,
+                value=10,
+                step=5,
+                key="llm_max_positions"
+            )
+        
+        with col3:
+            show_latest_only = st.checkbox(
+                "Latest results only",
+                value=True,
+                key="llm_latest_only",
+                help="Show only the most recent results for this keyword"
+            )
+        
+        with col4:
+            show_full_urls = st.checkbox(
+                "Show full URLs",
+                value=True,
+                key="llm_show_full_urls",
+                help="Toggle between full URLs and domain names"
+            )
+        
+        if selected_keyword_detail:
+            st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+            
+            # Filter data for selected keyword
+            keyword_detail_data = filtered_df[
+                filtered_df['Keyword'] == selected_keyword_detail
+            ].copy()
+            
+            if not keyword_detail_data.empty:
+                # Get latest or all timestamps
+                if show_latest_only and not keyword_detail_data['DateTime'].isna().all():
+                    latest_time = keyword_detail_data['DateTime'].max()
+                    keyword_detail_data = keyword_detail_data[
+                        keyword_detail_data['DateTime'] == latest_time
+                    ]
+                    display_time = latest_time.strftime('%B %d, %Y at %I:%M %p') if pd.notna(latest_time) else "Unknown"
+                else:
+                    display_time = "All available data"
+                
+                # Get country for this keyword
+                keyword_country = keyword_detail_data['Country'].iloc[0] if 'Country' in keyword_detail_data.columns else 'Unknown'
+                
+                # Create position summary
+                st.markdown(f"**📍 Keyword:** `{selected_keyword_detail}` | **🌍 Country:** {get_country_flag(keyword_country)} | **🕐 Data:** {display_time}")
+                
+                # Clean and sort position data
+                position_data = keyword_detail_data[
+                    keyword_detail_data['Position'] <= max_positions
+                ].copy()
+                
+                # Clean URLs using the utility function
+                position_data['Result_URL'] = position_data['Result_URL'].apply(clean_html_from_url)
+                
+                # Remove any rows with empty or invalid URLs after cleaning
+                position_data = position_data[
+                    (position_data['Result_URL'].notna()) & 
+                    (position_data['Result_URL'] != '') &
+                    (position_data['Result_URL'].str.startswith('http'))
+                ]
+                
+                # Remove duplicates - keep only first URL for each position
+                position_data = position_data.drop_duplicates(subset=['Position'], keep='first')
+                position_data = position_data.sort_values('Position')
+                
+                if not position_data.empty:
+                    # Create single column layout for better readability
+                    st.markdown("**Search Results:**")
+                    
+                    # Display positions in order - one URL per position
+                    for pos in sorted(position_data['Position'].unique()):
+                        entry = position_data[position_data['Position'] == pos].iloc[0]
+                        url = entry['Result_URL']
+                        
+                        # Determine if it's Recharge
+                        is_recharge = 'recharge.com' in url.lower()
+                        
+                        # Choose display format based on toggle
+                        if show_full_urls:
+                            display_url = url
+                        else:
+                            try:
+                                display_url = urlparse(url).netloc.replace('www.', '')
+                                if not display_url:
+                                    display_url = url
+                            except:
+                                display_url = url
+                        
+                        # Style based on whether it's Recharge
+                        if is_recharge:
+                            position_color = "#f59e0b"
+                            result_class = "recharge"
+                        else:
+                            position_color = "#64748b"
+                            result_class = ""
+                        
+                        st.markdown(f"""
+                        <div class="serp-result {result_class}" style="margin-bottom: 0.75rem;">
+                            <div class="position-number" style="background: {position_color};">
+                                {int(pos)}
+                            </div>
+                            <div class="result-content" style="flex: 1;">
+                                <div class="result-url" style="word-break: break-all; font-size: 0.85rem;">{display_url}</div>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    # Summary statistics
+                    st.markdown("---")
+                    col_stat1, col_stat2, col_stat3 = st.columns(3)
+                    
+                    with col_stat1:
+                        recharge_pos = position_data[
+                            position_data['Result_URL'].str.contains('recharge.com', case=False, na=False)
+                        ]['Position'].min()
+                        
+                        if pd.notna(recharge_pos):
+                            st.metric("Recharge Position", f"#{int(recharge_pos)}")
+                        else:
+                            st.metric("Recharge Position", "Not Ranking")
+                    
+                    with col_stat2:
+                        total_results = len(position_data['Position'].unique())
+                        st.metric("Positions Shown", f"{total_results}/{max_positions}")
+                    
+                    with col_stat3:
+                        unique_domains = position_data['Result_URL'].apply(
+                            lambda x: urlparse(x).netloc.replace('www.', '') if x else ''
+                        ).nunique()
+                        st.metric("Unique Domains", unique_domains)
+                
+                else:
+                    st.info(f"No results found in top {max_positions} positions")
+            else:
+                st.warning(f"No data available for keyword: {selected_keyword_detail}")
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+    
+    # LLM SERP Comparison
+    st.markdown('<div class="section-title">⚖️ LLM SERP Comparison</div>', unsafe_allow_html=True)
+    
+    if not filtered_df.empty and not filtered_df['DateTime'].isna().all():
+        # Keyword selector for comparison
+        comparison_keyword = st.selectbox(
+            "Select keyword for comparison:",
+            sorted(all_keywords),
+            key="llm_comparison_keyword"
+        )
+        
+        if comparison_keyword:
+            # Get data for selected keyword
+            comparison_data = filtered_df[filtered_df['Keyword'] == comparison_keyword].copy()
+            
+            # Clean URLs using the utility function
+            comparison_data['Result_URL'] = comparison_data['Result_URL'].apply(clean_html_from_url)
+            
+            # Remove invalid URLs
+            comparison_data = comparison_data[
+                (comparison_data['Result_URL'].notna()) & 
+                (comparison_data['Result_URL'] != '') &
+                (comparison_data['Result_URL'].str.startswith('http'))
+            ]
+            
+            # Get available timestamps
+            available_times = sorted(comparison_data['DateTime'].dropna().unique())
+            
+            if len(available_times) >= 2:
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    time1 = st.selectbox(
+                        "📅 Select first date/time:",
+                        available_times,
+                        format_func=lambda x: x.strftime('%B %d, %Y at %I:%M %p'),
+                        key="llm_time1"
+                    )
+                
+                with col2:
+                    time2 = st.selectbox(
+                        "📅 Select second date/time:",
+                        available_times,
+                        format_func=lambda x: x.strftime('%B %d, %Y at %I:%M %p'),
+                        index=len(available_times)-1,
+                        key="llm_time2"
+                    )
+                
+                if time1 != time2:
+                    # Get data for both times
+                    data1 = comparison_data[comparison_data['DateTime'] == time1].copy()
+                    data2 = comparison_data[comparison_data['DateTime'] == time2].copy()
+                    
+                    # Remove duplicates - keep only first URL for each position
+                    data1 = data1.drop_duplicates(subset=['Position'], keep='first')
+                    data2 = data2.drop_duplicates(subset=['Position'], keep='first')
+                    
+                    # Track movements
+                    col1, col2, col3, col4 = st.columns(4)
+                    
+                    # Calculate changes
+                    urls1 = set(data1['Result_URL'].unique())
+                    urls2 = set(data2['Result_URL'].unique())
+                    
+                    improved = 0
+                    declined = 0
+                    new_entries = len(urls2 - urls1)
+                    lost_entries = len(urls1 - urls2)
+                    
+                    # Calculate position changes for common URLs
+                    for url in urls1.intersection(urls2):
+                        pos1 = data1[data1['Result_URL'] == url]['Position'].min()
+                        pos2 = data2[data2['Result_URL'] == url]['Position'].min()
+                        if pos2 < pos1:
+                            improved += 1
+                        elif pos2 > pos1:
+                            declined += 1
+                    
+                    with col1:
+                        st.markdown(f"""
+                        <div class="metric-card" style="border-left: 4px solid #22c55e;">
+                            <div class="metric-number" style="color: #22c55e;">{improved}</div>
+                            <div class="metric-label">📈 Improved</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    with col2:
+                        st.markdown(f"""
+                        <div class="metric-card" style="border-left: 4px solid #ef4444;">
+                            <div class="metric-number" style="color: #ef4444;">{declined}</div>
+                            <div class="metric-label">📉 Declined</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    with col3:
+                        st.markdown(f"""
+                        <div class="metric-card" style="border-left: 4px solid #3b82f6;">
+                            <div class="metric-number" style="color: #3b82f6;">{new_entries}</div>
+                            <div class="metric-label">🆕 New</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    with col4:
+                        st.markdown(f"""
+                        <div class="metric-card" style="border-left: 4px solid #f59e0b;">
+                            <div class="metric-number" style="color: #f59e0b;">{lost_entries}</div>
+                            <div class="metric-label">❌ Lost</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    # Side-by-side comparison
+                    st.markdown("---")
+                    col_left, col_right = st.columns(2)
+                    
+                    with col_left:
+                        st.markdown(f"""
+                        <div class="serp-column">
+                            <div class="serp-header">📅 {time1.strftime('%B %d, %Y at %I:%M %p')}</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        # Show top 10 results from time1 - one per position
+                        for pos in sorted(data1['Position'].unique())[:10]:
+                            entry = data1[data1['Position'] == pos].iloc[0]
+                            url = entry['Result_URL']
+                            is_recharge = 'recharge.com' in url.lower()
+                            
+                            position_color = "#f59e0b" if is_recharge else "#64748b"
+                            
+                            st.markdown(f"""
+                            <div class="serp-result {'recharge' if is_recharge else ''}">
+                                <div class="position-number" style="background: {position_color};">
+                                    {int(pos)}
+                                </div>
+                                <div class="result-content">
+                                    <div class="result-url" style="font-size: 0.75rem; word-break: break-all;">{url}</div>
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                    
+                    with col_right:
+                        st.markdown(f"""
+                        <div class="serp-column">
+                            <div class="serp-header">📅 {time2.strftime('%B %d, %Y at %I:%M %p')}</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        # Show top 10 results from time2 - one per position
+                        for pos in sorted(data2['Position'].unique())[:10]:
+                            entry = data2[data2['Position'] == pos].iloc[0]
+                            url = entry['Result_URL']
+                            is_recharge = 'recharge.com' in url.lower()
+                            
+                            # Check if this URL moved
+                            change_indicator = ""
+                            change_color = "#64748b"
+                            if url in urls1:
+                                old_pos = data1[data1['Result_URL'] == url]['Position'].min()
+                                if old_pos > pos:
+                                    change_indicator = f" ↑{int(old_pos - pos)}"
+                                    change_color = "#22c55e"
+                                elif old_pos < pos:
+                                    change_indicator = f" ↓{int(pos - old_pos)}"
+                                    change_color = "#ef4444"
+                            else:
+                                change_indicator = " (NEW)"
+                                change_color = "#3b82f6"
+                            
+                            position_color = "#f59e0b" if is_recharge else change_color
+                            
+                            st.markdown(f"""
+                            <div class="serp-result {'recharge' if is_recharge else ''}">
+                                <div class="position-number" style="background: {position_color};">
+                                    {int(pos)}
+                                </div>
+                                <div class="result-content">
+                                    <div class="result-url" style="font-size: 0.75rem; word-break: break-all; color: {change_color if not is_recharge else '#f59e0b'};">
+                                        {url}{change_indicator}
+                                    </div>
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                else:
+                    st.warning("Please select two different times for comparison")
+            else:
+                st.info(f"Need at least 2 data points for comparison. Currently have {len(available_times)}")
+    else:
+        st.info("No temporal data available for comparison")
+    
+    # Historical Performance Summary
+    if not filtered_df['DateTime'].isna().all() and not recharge_df.empty:
+        st.markdown('<div class="section-title">📊 Historical Performance Summary</div>', unsafe_allow_html=True)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+            
+            # Position trend over time (aggregated)
+            daily_avg = recharge_df.set_index('DateTime').resample('D')['Position'].mean().dropna()
+            
+            if not daily_avg.empty:
+                fig_daily = px.line(
+                    x=daily_avg.index,
+                    y=daily_avg.values,
+                    title="Average Daily Position Trend",
+                    labels={'x': 'Date', 'y': 'Average Position'}
+                )
+                
+                fig_daily.update_traces(
+                    line=dict(width=3, color='#22c55e'),
+                    mode='lines+markers',
+                    marker=dict(size=8)
+                )
+                
+                fig_daily.update_layout(
+                    height=300,
+                    yaxis=dict(autorange="reversed", title="Average Position"),
+                    xaxis_title="Date",
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    font_color='#f8fafc',
+                    showlegend=False
+                )
+                
+                st.plotly_chart(fig_daily, use_container_width=True)
+            else:
+                st.info("Not enough historical data")
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+            
+            # Visibility trend over time
+            daily_visibility = filtered_df.set_index('DateTime').resample('D').apply(
+                lambda x: (x['Result_URL'].str.contains('recharge.com', case=False, na=False).sum() / len(x) * 100) if len(x) > 0 else 0
+            ).dropna()
+            
+            if not daily_visibility.empty:
+                fig_visibility = px.area(
+                    x=daily_visibility.index,
+                    y=daily_visibility.values,
+                    title="Daily Visibility Rate (%)",
+                    labels={'x': 'Date', 'y': 'Visibility (%)'}
+                )
+                
+                fig_visibility.update_traces(
+                    fill='tozeroy',
+                    line=dict(width=2, color='#3b82f6'),
+                    fillcolor='rgba(59, 130, 246, 0.3)'
+                )
+                
+                fig_visibility.update_layout(
+                    height=300,
+                    yaxis=dict(title="Visibility (%)", range=[0, 100]),
+                    xaxis_title="Date",
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    font_color='#f8fafc',
+                    showlegend=False
+                )
+                
+                st.plotly_chart(fig_visibility, use_container_width=True)
+            else:
+                st.info("Not enough historical data")
+            
+            st.markdown('</div>', unsafe_allow_html=True)
 def main():
-    # Theme Switcher in Sidebar
-    st.sidebar.markdown("### 🎨 Theme Settings")
-    theme_choice = st.sidebar.radio(
-        "Choose Theme:",
-        ["🌙 Dark Mode", "☀️ Light Mode"],
-        index=0 if st.session_state.theme == 'dark' else 1,
-        key="theme_selector"
-    )
-    
-    # Update theme based on selection
-    if theme_choice == "☀️ Light Mode" and st.session_state.theme != 'light':
-        st.session_state.theme = 'light'
-        st.rerun()
-    elif theme_choice == "🌙 Dark Mode" and st.session_state.theme != 'dark':
-        st.session_state.theme = 'dark'
-        st.rerun()
-    
-    st.sidebar.markdown("---")
-    
     # Load data
     with st.spinner('Loading data...'):
         df = load_data_from_google_sheets()
@@ -1482,7 +2220,7 @@ def main():
         st.info("Make sure the Google Sheet is shared publicly (Anyone with the link can view)")
         return
     
-    # Sidebar navigation
+    # Sidebar navigation - Updated with new option
     st.sidebar.markdown("### 📊 Navigation")
     
     page = st.sidebar.radio(
@@ -1515,6 +2253,5 @@ def main():
         show_serp_comparison(df)
     elif page == "🤖 LLM Position Tracking":
         show_llm_position_tracking(llm_df)
-
-if __name__ == "__main__":
+if **name** == "__main__":
     main()
