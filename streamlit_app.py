@@ -241,6 +241,7 @@ st.markdown("""
         color: #94a3b8;
         word-break: break-all;
         margin-bottom: 0.3rem;
+        line-height: 1.4;
     }
     
     .result-badge {
@@ -1663,19 +1664,16 @@ def show_llm_position_tracking(llm_df):
                 'Country': get_country_flag(keyword_data['Country'].iloc[0]) if not keyword_data.empty else 'Unknown'
             }
             
-            # Add position columns
+            # Add position columns with full URLs
             for pos in range(1, 6):
                 pos_data = top_5[top_5['Position'] == pos]
                 if not pos_data.empty:
                     url = pos_data['Result_URL'].iloc[0]
-                    try:
-                        domain = urlparse(url).netloc.replace('www.', '')
-                        if 'recharge.com' in url.lower():
-                            row_data[f'Pos {pos}'] = f"🔋 {domain}"
-                        else:
-                            row_data[f'Pos {pos}'] = domain[:20]
-                    except:
-                        row_data[f'Pos {pos}'] = url[:20]
+                    if 'recharge.com' in url.lower():
+                        row_data[f'Pos {pos}'] = f"🔋 {url}"
+                    else:
+                        # Show full URL, truncate if very long
+                        row_data[f'Pos {pos}'] = url if len(url) <= 100 else url[:97] + "..."
                 else:
                     row_data[f'Pos {pos}'] = "-"
             
@@ -1700,12 +1698,22 @@ def show_llm_position_tracking(llm_df):
         )
         matrix_df = matrix_df.sort_values('Sort_Key').drop('Sort_Key', axis=1)
         
-        # Display the matrix
+        # Display the matrix with custom column configuration for better readability
         st.dataframe(
             matrix_df,
             use_container_width=True,
             hide_index=True,
-            height=min(600, 40 * len(matrix_df) + 50)
+            height=min(600, 40 * len(matrix_df) + 50),
+            column_config={
+                "Keyword": st.column_config.TextColumn("Keyword", width="small"),
+                "Country": st.column_config.TextColumn("Country", width="small"),
+                "Pos 1": st.column_config.TextColumn("Position 1", width="large"),
+                "Pos 2": st.column_config.TextColumn("Position 2", width="large"),
+                "Pos 3": st.column_config.TextColumn("Position 3", width="large"),
+                "Pos 4": st.column_config.TextColumn("Position 4", width="large"),
+                "Pos 5": st.column_config.TextColumn("Position 5", width="large"),
+                "Recharge Pos": st.column_config.TextColumn("Recharge", width="small")
+            }
         )
         
         # Summary stats
@@ -1730,7 +1738,7 @@ def show_llm_position_tracking(llm_df):
     
     if not filtered_df.empty:
         # Keyword selector for detailed SERP view
-        col1, col2, col3 = st.columns([2, 1, 1])
+        col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
         
         with col1:
             selected_keyword_detail = st.selectbox(
@@ -1755,6 +1763,14 @@ def show_llm_position_tracking(llm_df):
                 value=True,
                 key="llm_latest_only",
                 help="Show only the most recent results for this keyword"
+            )
+        
+        with col4:
+            show_full_urls = st.checkbox(
+                "Show full URLs",
+                value=True,
+                key="llm_show_full_urls",
+                help="Toggle between full URLs and domain names"
             )
         
         if selected_keyword_detail:
@@ -1803,12 +1819,16 @@ def show_llm_position_tracking(llm_df):
                                 # Determine if it's Recharge
                                 is_recharge = 'recharge.com' in url.lower()
                                 
-                                # Extract domain for display
-                                try:
-                                    domain = urlparse(url).netloc.replace('www.', '')
-                                    display_url = domain if domain else url[:50]
-                                except:
-                                    display_url = url[:50] + "..." if len(url) > 50 else url
+                                # Choose display format based on toggle
+                                if show_full_urls:
+                                    display_url = url
+                                else:
+                                    try:
+                                        display_url = urlparse(url).netloc.replace('www.', '')
+                                        if not display_url:
+                                            display_url = url
+                                    except:
+                                        display_url = url
                                 
                                 # Style based on whether it's Recharge
                                 if is_recharge:
@@ -1826,7 +1846,7 @@ def show_llm_position_tracking(llm_df):
                                         {int(pos)}
                                     </div>
                                     <div class="result-content">
-                                        <div class="result-url">{display_url}</div>
+                                        <div class="result-url" style="word-break: break-all;">{display_url}</div>
                                         {f'<span class="result-badge badge-recharge">{badge}</span>' if badge else ''}
                                     </div>
                                 </div>
@@ -1840,12 +1860,16 @@ def show_llm_position_tracking(llm_df):
                                 # Determine if it's Recharge
                                 is_recharge = 'recharge.com' in url.lower()
                                 
-                                # Extract domain for display
-                                try:
-                                    domain = urlparse(url).netloc.replace('www.', '')
-                                    display_url = domain if domain else url[:50]
-                                except:
-                                    display_url = url[:50] + "..." if len(url) > 50 else url
+                                # Choose display format based on toggle
+                                if show_full_urls:
+                                    display_url = url
+                                else:
+                                    try:
+                                        display_url = urlparse(url).netloc.replace('www.', '')
+                                        if not display_url:
+                                            display_url = url
+                                    except:
+                                        display_url = url
                                 
                                 # Style based on whether it's Recharge
                                 if is_recharge:
@@ -1863,7 +1887,7 @@ def show_llm_position_tracking(llm_df):
                                         {int(pos)}
                                     </div>
                                     <div class="result-content">
-                                        <div class="result-url">{display_url}</div>
+                                        <div class="result-url" style="word-break: break-all;">{display_url}</div>
                                         {f'<span class="result-badge badge-recharge">{badge}</span>' if badge else ''}
                                     </div>
                                 </div>
