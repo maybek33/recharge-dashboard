@@ -463,6 +463,14 @@ def load_llm_data():
             
             # If we have a URL in Results column
             if pd.notna(row.get('Results')) and row.get('Results') != 'Start':
+                # Clean the URL - remove HTML artifacts
+                url = str(row['Results']).strip()
+                url = url.replace('</div>', '').replace('<div>', '').replace('</a>', '').replace('<a>', '')
+                
+                # Skip if not a valid URL
+                if not url.startswith('http'):
+                    continue
+                
                 # Extract keyword, time, date, country for this row or use current values
                 keyword = row['Keyword'] if pd.notna(row.get('Keyword')) else current_keyword
                 time = row['Time'] if pd.notna(row.get('Time')) else current_time
@@ -482,7 +490,7 @@ def load_llm_data():
                 processed_data.append({
                     'Keyword': keyword,
                     'Time': time,
-                    'Result_URL': row['Results'],
+                    'Result_URL': url,
                     'Position': row.get('Position'),
                     'Date': date,
                     'Country': country
@@ -1798,100 +1806,71 @@ def show_llm_position_tracking(llm_df):
                 # Create position summary
                 st.markdown(f"**📍 Keyword:** `{selected_keyword_detail}` | **🌍 Country:** {get_country_flag(keyword_country)} | **🕐 Data:** {display_time}")
                 
-                # Group by position and get URLs
+                # Clean and sort position data
                 position_data = keyword_detail_data[
                     keyword_detail_data['Position'] <= max_positions
-                ].sort_values('Position')
+                ].copy()
+                
+                # Clean URLs - remove </div> and other HTML artifacts
+                position_data['Result_URL'] = position_data['Result_URL'].apply(
+                    lambda x: str(x).replace('</div>', '').replace('<div>', '').strip() if pd.notna(x) else x
+                )
+                
+                # Remove any rows with empty or invalid URLs after cleaning
+                position_data = position_data[
+                    (position_data['Result_URL'].notna()) & 
+                    (position_data['Result_URL'] != '') &
+                    (position_data['Result_URL'].str.startswith('http'))
+                ]
+                
+                position_data = position_data.sort_values('Position')
                 
                 if not position_data.empty:
-                    # Create two-column layout for positions
-                    col_left, col_right = st.columns(2)
+                    # Create single column layout for better readability
+                    st.markdown("**Search Results:**")
                     
-                    # Split positions into two columns
-                    positions = sorted(position_data['Position'].unique())
-                    mid_point = (len(positions) + 1) // 2
-                    
-                    with col_left:
-                        for pos in positions[:mid_point]:
-                            pos_urls = position_data[position_data['Position'] == pos]['Result_URL'].values
+                    # Display positions in order
+                    for pos in sorted(position_data['Position'].unique()):
+                        pos_entries = position_data[position_data['Position'] == pos]
+                        
+                        for _, entry in pos_entries.iterrows():
+                            url = entry['Result_URL']
                             
-                            for url in pos_urls:
-                                # Determine if it's Recharge
-                                is_recharge = 'recharge.com' in url.lower()
-                                
-                                # Choose display format based on toggle
-                                if show_full_urls:
-                                    display_url = url
-                                else:
-                                    try:
-                                        display_url = urlparse(url).netloc.replace('www.', '')
-                                        if not display_url:
-                                            display_url = url
-                                    except:
-                                        display_url = url
-                                
-                                # Style based on whether it's Recharge
-                                if is_recharge:
-                                    position_color = "#f59e0b"
-                                    badge = "🔋 Recharge"
-                                    result_class = "recharge"
-                                else:
-                                    position_color = "#64748b"
-                                    badge = ""
-                                    result_class = ""
-                                
-                                st.markdown(f"""
-                                <div class="serp-result {result_class}">
-                                    <div class="position-number" style="background: {position_color};">
-                                        {int(pos)}
-                                    </div>
-                                    <div class="result-content">
-                                        <div class="result-url" style="word-break: break-all;">{display_url}</div>
-                                        {f'<span class="result-badge badge-recharge">{badge}</span>' if badge else ''}
-                                    </div>
-                                </div>
-                                """, unsafe_allow_html=True)
-                    
-                    with col_right:
-                        for pos in positions[mid_point:]:
-                            pos_urls = position_data[position_data['Position'] == pos]['Result_URL'].values
+                            # Determine if it's Recharge
+                            is_recharge = 'recharge.com' in url.lower()
                             
-                            for url in pos_urls:
-                                # Determine if it's Recharge
-                                is_recharge = 'recharge.com' in url.lower()
-                                
-                                # Choose display format based on toggle
-                                if show_full_urls:
-                                    display_url = url
-                                else:
-                                    try:
-                                        display_url = urlparse(url).netloc.replace('www.', '')
-                                        if not display_url:
-                                            display_url = url
-                                    except:
+                            # Choose display format based on toggle
+                            if show_full_urls:
+                                display_url = url
+                            else:
+                                try:
+                                    display_url = urlparse(url).netloc.replace('www.', '')
+                                    if not display_url:
                                         display_url = url
-                                
-                                # Style based on whether it's Recharge
-                                if is_recharge:
-                                    position_color = "#f59e0b"
-                                    badge = "🔋 Recharge"
-                                    result_class = "recharge"
-                                else:
-                                    position_color = "#64748b"
-                                    badge = ""
-                                    result_class = ""
-                                
-                                st.markdown(f"""
-                                <div class="serp-result {result_class}">
-                                    <div class="position-number" style="background: {position_color};">
-                                        {int(pos)}
-                                    </div>
-                                    <div class="result-content">
-                                        <div class="result-url" style="word-break: break-all;">{display_url}</div>
-                                        {f'<span class="result-badge badge-recharge">{badge}</span>' if badge else ''}
-                                    </div>
+                                except:
+                                    display_url = url
+                            
+                            # Style based on whether it's Recharge
+                            if is_recharge:
+                                position_color = "#f59e0b"
+                                badge = "🔋 Recharge"
+                                result_class = "recharge"
+                            else:
+                                position_color = "#64748b"
+                                badge = ""
+                                result_class = ""
+                            
+                            st.markdown(f"""
+                            <div class="serp-result {result_class}" style="margin-bottom: 0.75rem;">
+                                <div class="position-number" style="background: {position_color};">
+                                    {int(pos)}
                                 </div>
-                                """, unsafe_allow_html=True)
+                                <div class="result-content" style="flex: 1;">
+                                    <div class="result-url" style="word-break: break-all; font-size: 0.85rem;">{display_url}</div>
+                                    {f'<span class="result-badge badge-recharge">{badge}</span>' if badge else ''}
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
                     
                     # Summary statistics
                     st.markdown("---")
@@ -1923,6 +1902,191 @@ def show_llm_position_tracking(llm_df):
                 st.warning(f"No data available for keyword: {selected_keyword_detail}")
             
             st.markdown('</div>', unsafe_allow_html=True)
+    
+    # LLM SERP Comparison
+    st.markdown('<div class="section-title">⚖️ LLM SERP Comparison</div>', unsafe_allow_html=True)
+    
+    if not filtered_df.empty and not filtered_df['DateTime'].isna().all():
+        # Keyword selector for comparison
+        comparison_keyword = st.selectbox(
+            "Select keyword for comparison:",
+            sorted(all_keywords),
+            key="llm_comparison_keyword"
+        )
+        
+        if comparison_keyword:
+            # Get data for selected keyword
+            comparison_data = filtered_df[filtered_df['Keyword'] == comparison_keyword].copy()
+            
+            # Clean URLs
+            comparison_data['Result_URL'] = comparison_data['Result_URL'].apply(
+                lambda x: str(x).replace('</div>', '').replace('<div>', '').strip() if pd.notna(x) else x
+            )
+            
+            # Get available timestamps
+            available_times = sorted(comparison_data['DateTime'].dropna().unique())
+            
+            if len(available_times) >= 2:
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    time1 = st.selectbox(
+                        "📅 Select first date/time:",
+                        available_times,
+                        format_func=lambda x: x.strftime('%B %d, %Y at %I:%M %p'),
+                        key="llm_time1"
+                    )
+                
+                with col2:
+                    time2 = st.selectbox(
+                        "📅 Select second date/time:",
+                        available_times,
+                        format_func=lambda x: x.strftime('%B %d, %Y at %I:%M %p'),
+                        index=len(available_times)-1,
+                        key="llm_time2"
+                    )
+                
+                if time1 != time2:
+                    # Get data for both times
+                    data1 = comparison_data[comparison_data['DateTime'] == time1].copy()
+                    data2 = comparison_data[comparison_data['DateTime'] == time2].copy()
+                    
+                    # Track movements
+                    col1, col2, col3, col4 = st.columns(4)
+                    
+                    # Calculate changes
+                    urls1 = set(data1['Result_URL'].unique())
+                    urls2 = set(data2['Result_URL'].unique())
+                    
+                    improved = 0
+                    declined = 0
+                    new_entries = len(urls2 - urls1)
+                    lost_entries = len(urls1 - urls2)
+                    
+                    # Calculate position changes for common URLs
+                    for url in urls1.intersection(urls2):
+                        pos1 = data1[data1['Result_URL'] == url]['Position'].min()
+                        pos2 = data2[data2['Result_URL'] == url]['Position'].min()
+                        if pos2 < pos1:
+                            improved += 1
+                        elif pos2 > pos1:
+                            declined += 1
+                    
+                    with col1:
+                        st.markdown(f"""
+                        <div class="metric-card" style="border-left: 4px solid #22c55e;">
+                            <div class="metric-number" style="color: #22c55e;">{improved}</div>
+                            <div class="metric-label">📈 Improved</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    with col2:
+                        st.markdown(f"""
+                        <div class="metric-card" style="border-left: 4px solid #ef4444;">
+                            <div class="metric-number" style="color: #ef4444;">{declined}</div>
+                            <div class="metric-label">📉 Declined</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    with col3:
+                        st.markdown(f"""
+                        <div class="metric-card" style="border-left: 4px solid #3b82f6;">
+                            <div class="metric-number" style="color: #3b82f6;">{new_entries}</div>
+                            <div class="metric-label">🆕 New</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    with col4:
+                        st.markdown(f"""
+                        <div class="metric-card" style="border-left: 4px solid #f59e0b;">
+                            <div class="metric-number" style="color: #f59e0b;">{lost_entries}</div>
+                            <div class="metric-label">❌ Lost</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    # Side-by-side comparison
+                    st.markdown("---")
+                    col_left, col_right = st.columns(2)
+                    
+                    with col_left:
+                        st.markdown(f"""
+                        <div class="serp-column">
+                            <div class="serp-header">📅 {time1.strftime('%B %d, %Y at %I:%M %p')}</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        # Show top 10 results from time1
+                        for pos in sorted(data1['Position'].unique())[:10]:
+                            pos_data = data1[data1['Position'] == pos]
+                            for _, entry in pos_data.iterrows():
+                                url = entry['Result_URL']
+                                is_recharge = 'recharge.com' in url.lower()
+                                
+                                position_color = "#f59e0b" if is_recharge else "#64748b"
+                                badge = "🔋" if is_recharge else ""
+                                
+                                st.markdown(f"""
+                                <div class="serp-result {'recharge' if is_recharge else ''}">
+                                    <div class="position-number" style="background: {position_color};">
+                                        {int(pos)}
+                                    </div>
+                                    <div class="result-content">
+                                        <div class="result-url" style="font-size: 0.75rem;">{url}</div>
+                                        {f'<span class="result-badge badge-recharge">{badge}</span>' if badge else ''}
+                                    </div>
+                                </div>
+                                """, unsafe_allow_html=True)
+                    
+                    with col_right:
+                        st.markdown(f"""
+                        <div class="serp-column">
+                            <div class="serp-header">📅 {time2.strftime('%B %d, %Y at %I:%M %p')}</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        # Show top 10 results from time2
+                        for pos in sorted(data2['Position'].unique())[:10]:
+                            pos_data = data2[data2['Position'] == pos]
+                            for _, entry in pos_data.iterrows():
+                                url = entry['Result_URL']
+                                is_recharge = 'recharge.com' in url.lower()
+                                
+                                # Check if this URL moved
+                                change_text = ""
+                                change_color = "#64748b"
+                                if url in urls1:
+                                    old_pos = data1[data1['Result_URL'] == url]['Position'].min()
+                                    if old_pos > pos:
+                                        change_text = f"↑{int(old_pos - pos)}"
+                                        change_color = "#22c55e"
+                                    elif old_pos < pos:
+                                        change_text = f"↓{int(pos - old_pos)}"
+                                        change_color = "#ef4444"
+                                else:
+                                    change_text = "NEW"
+                                    change_color = "#3b82f6"
+                                
+                                position_color = "#f59e0b" if is_recharge else change_color
+                                badge = "🔋" if is_recharge else ""
+                                
+                                st.markdown(f"""
+                                <div class="serp-result {'recharge' if is_recharge else ''}">
+                                    <div class="position-number" style="background: {position_color};">
+                                        {int(pos)}
+                                    </div>
+                                    <div class="result-content">
+                                        <div class="result-url" style="font-size: 0.75rem;">{url}</div>
+                                        {f'<span class="result-badge badge-recharge">{badge}</span>' if badge else ''}
+                                        {f'<span class="result-badge" style="background: {change_color};">{change_text}</span>' if change_text else ''}
+                                    </div>
+                                </div>
+                                """, unsafe_allow_html=True)
+                else:
+                    st.warning("Please select two different times for comparison")
+            else:
+                st.info(f"Need at least 2 data points for comparison. Currently have {len(available_times)}")
+    else:
+        st.info("No temporal data available for comparison")
     
     # Historical Performance Summary
     if not filtered_df['DateTime'].isna().all() and not recharge_df.empty:
