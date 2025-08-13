@@ -463,11 +463,24 @@ def load_llm_data():
             
             # If we have a URL in Results column
             if pd.notna(row.get('Results')) and row.get('Results') != 'Start':
-                # Clean the URL - remove HTML artifacts
+                # Clean the URL - remove ALL HTML artifacts
                 url = str(row['Results']).strip()
-                url = url.replace('</div>', '').replace('<div>', '').replace('</a>', '').replace('<a>', '')
                 
-                # Skip if not a valid URL
+                # Remove common HTML tags and attributes
+                import re
+                # Remove all HTML tags
+                url = re.sub(r'<[^>]+>', '', url)
+                # Remove any remaining HTML entities
+                url = re.sub(r'&[a-zA-Z]+;', '', url)
+                # Clean up any style attributes that might remain
+                url = re.sub(r'style="[^"]*"', '', url)
+                url = re.sub(r"style='[^']*'", '', url)
+                url = re.sub(r'class="[^"]*"', '', url)
+                url = re.sub(r"class='[^']*'", '', url)
+                # Remove any remaining quotes and extra spaces
+                url = url.replace('"', '').replace("'", '').strip()
+                
+                # Skip if not a valid URL after cleaning
                 if not url.startswith('http'):
                     continue
                 
