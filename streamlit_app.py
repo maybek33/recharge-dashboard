@@ -316,6 +316,33 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Utility functions
+def clean_html_from_url(url):
+    """Clean all HTML artifacts from URLs"""
+    if pd.isna(url):
+        return url
+    
+    import re
+    url = str(url).strip()
+    
+    # Remove all HTML tags
+    url = re.sub(r'<[^>]+>', '', url)
+    # Remove any HTML entities
+    url = re.sub(r'&[a-zA-Z]+;', '', url)
+    # Clean up any style or class attributes
+    url = re.sub(r'style="[^"]*"', '', url)
+    url = re.sub(r"style='[^']*'", '', url)
+    url = re.sub(r'class="[^"]*"', '', url)
+    url = re.sub(r"class='[^']*'", '', url)
+    # Remove any id attributes
+    url = re.sub(r'id="[^"]*"', '', url)
+    url = re.sub(r"id='[^']*'", '', url)
+    # Remove background attributes
+    url = re.sub(r'background:[^;]+;?', '', url)
+    # Clean up remaining artifacts
+    url = url.replace('"', '').replace("'", '').replace('>', '').replace('<', '').strip()
+    
+    return url
+
 def get_country_flag(location_code):
     """Get country flag emoji from location code"""
     flag_map = {
@@ -1669,7 +1696,17 @@ def show_llm_position_tracking(llm_df):
         matrix_data = []
         
         for keyword in sorted(all_keywords):
-            keyword_data = filtered_df[filtered_df['Keyword'] == keyword]
+            keyword_data = filtered_df[filtered_df['Keyword'] == keyword].copy()
+            
+            # Clean URLs in keyword data
+            keyword_data['Result_URL'] = keyword_data['Result_URL'].apply(clean_html_from_url)
+            
+            # Remove invalid URLs
+            keyword_data = keyword_data[
+                (keyword_data['Result_URL'].notna()) & 
+                (keyword_data['Result_URL'] != '') &
+                (keyword_data['Result_URL'].str.startswith('http'))
+            ]
             
             # Get latest data if datetime available
             if not keyword_data['DateTime'].isna().all():
@@ -1685,16 +1722,13 @@ def show_llm_position_tracking(llm_df):
                 'Country': get_country_flag(keyword_data['Country'].iloc[0]) if not keyword_data.empty else 'Unknown'
             }
             
-            # Add position columns with full URLs
+            # Add position columns with clean URLs only
             for pos in range(1, 6):
                 pos_data = top_5[top_5['Position'] == pos]
                 if not pos_data.empty:
                     url = pos_data['Result_URL'].iloc[0]
-                    if 'recharge.com' in url.lower():
-                        row_data[f'Pos {pos}'] = f"🔋 {url}"
-                    else:
-                        # Show full URL, truncate if very long
-                        row_data[f'Pos {pos}'] = url if len(url) <= 100 else url[:97] + "..."
+                    # Show full URL, truncate if very long
+                    row_data[f'Pos {pos}'] = url if len(url) <= 100 else url[:97] + "..."
                 else:
                     row_data[f'Pos {pos}'] = "-"
             
@@ -1824,10 +1858,8 @@ def show_llm_position_tracking(llm_df):
                     keyword_detail_data['Position'] <= max_positions
                 ].copy()
                 
-                # Clean URLs - remove </div> and other HTML artifacts
-                position_data['Result_URL'] = position_data['Result_URL'].apply(
-                    lambda x: str(x).replace('</div>', '').replace('<div>', '').strip() if pd.notna(x) else x
-                )
+                # Clean URLs using the utility function
+                position_data['Result_URL'] = position_data['Result_URL'].apply(clean_html_from_url)
                 
                 # Remove any rows with empty or invalid URLs after cleaning
                 position_data = position_data[
@@ -1866,11 +1898,9 @@ def show_llm_position_tracking(llm_df):
                             # Style based on whether it's Recharge
                             if is_recharge:
                                 position_color = "#f59e0b"
-                                badge = "🔋 Recharge"
                                 result_class = "recharge"
                             else:
                                 position_color = "#64748b"
-                                badge = ""
                                 result_class = ""
                             
                             st.markdown(f"""
@@ -1880,7 +1910,6 @@ def show_llm_position_tracking(llm_df):
                                 </div>
                                 <div class="result-content" style="flex: 1;">
                                     <div class="result-url" style="word-break: break-all; font-size: 0.85rem;">{display_url}</div>
-                                    {f'<span class="result-badge badge-recharge">{badge}</span>' if badge else ''}
                                 </div>
                             </div>
                             """, unsafe_allow_html=True)
@@ -1931,10 +1960,15 @@ def show_llm_position_tracking(llm_df):
             # Get data for selected keyword
             comparison_data = filtered_df[filtered_df['Keyword'] == comparison_keyword].copy()
             
-            # Clean URLs
-            comparison_data['Result_URL'] = comparison_data['Result_URL'].apply(
-                lambda x: str(x).replace('</div>', '').replace('<div>', '').strip() if pd.notna(x) else x
-            )
+            # Clean URLs using the utility function
+            comparison_data['Result_URL'] = comparison_data['Result_URL'].apply(clean_html_from_url)
+            
+            # Remove invalid URLs
+            comparison_data = comparison_data[
+                (comparison_data['Result_URL'].notna()) & 
+                (comparison_data['Result_URL'] != '') &
+                (comparison_data['Result_URL'].str.startswith('http'))
+            ]
             
             # Get available timestamps
             available_times = sorted(comparison_data['DateTime'].dropna().unique())
@@ -2036,7 +2070,6 @@ def show_llm_position_tracking(llm_df):
                                 is_recharge = 'recharge.com' in url.lower()
                                 
                                 position_color = "#f59e0b" if is_recharge else "#64748b"
-                                badge = "🔋" if is_recharge else ""
                                 
                                 st.markdown(f"""
                                 <div class="serp-result {'recharge' if is_recharge else ''}">
@@ -2044,8 +2077,7 @@ def show_llm_position_tracking(llm_df):
                                         {int(pos)}
                                     </div>
                                     <div class="result-content">
-                                        <div class="result-url" style="font-size: 0.75rem;">{url}</div>
-                                        {f'<span class="result-badge badge-recharge">{badge}</span>' if badge else ''}
+                                        <div class="result-url" style="font-size: 0.75rem; word-break: break-all;">{url}</div>
                                     </div>
                                 </div>
                                 """, unsafe_allow_html=True)
@@ -2065,22 +2097,21 @@ def show_llm_position_tracking(llm_df):
                                 is_recharge = 'recharge.com' in url.lower()
                                 
                                 # Check if this URL moved
-                                change_text = ""
+                                change_indicator = ""
                                 change_color = "#64748b"
                                 if url in urls1:
                                     old_pos = data1[data1['Result_URL'] == url]['Position'].min()
                                     if old_pos > pos:
-                                        change_text = f"↑{int(old_pos - pos)}"
+                                        change_indicator = f" ↑{int(old_pos - pos)}"
                                         change_color = "#22c55e"
                                     elif old_pos < pos:
-                                        change_text = f"↓{int(pos - old_pos)}"
+                                        change_indicator = f" ↓{int(pos - old_pos)}"
                                         change_color = "#ef4444"
                                 else:
-                                    change_text = "NEW"
+                                    change_indicator = " (NEW)"
                                     change_color = "#3b82f6"
                                 
                                 position_color = "#f59e0b" if is_recharge else change_color
-                                badge = "🔋" if is_recharge else ""
                                 
                                 st.markdown(f"""
                                 <div class="serp-result {'recharge' if is_recharge else ''}">
@@ -2088,9 +2119,9 @@ def show_llm_position_tracking(llm_df):
                                         {int(pos)}
                                     </div>
                                     <div class="result-content">
-                                        <div class="result-url" style="font-size: 0.75rem;">{url}</div>
-                                        {f'<span class="result-badge badge-recharge">{badge}</span>' if badge else ''}
-                                        {f'<span class="result-badge" style="background: {change_color};">{change_text}</span>' if change_text else ''}
+                                        <div class="result-url" style="font-size: 0.75rem; word-break: break-all; color: {change_color if not is_recharge else '#f59e0b'};">
+                                            {url}{change_indicator}
+                                        </div>
                                     </div>
                                 </div>
                                 """, unsafe_allow_html=True)
