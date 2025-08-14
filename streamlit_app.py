@@ -1381,15 +1381,19 @@ def show_llm_position_tracking(llm_df):
         if not recharge_df.empty:
             position_counts = recharge_df['Position'].value_counts().sort_index()
             
+            # Convert Series to DataFrame for Plotly Express
+            position_df = position_counts.reset_index()
+            position_df.columns = ['Position', 'Frequency']
+            
             fig_bar = px.bar(
-                x=position_counts.index,
-                y=position_counts.values,
+                position_df,
+                x='Position',
+                y='Frequency',
                 title="Recharge.com Position Distribution in LLM Results",
-                labels={'x': 'Position', 'y': 'Frequency'},
-                color=position_counts.values,
+                color='Frequency',
                 color_continuous_scale=['#ef4444', '#f59e0b', '#22c55e'][::-1]
             )
-            
+                        
             fig_bar.update_layout(
                 height=350,
                 showlegend=False,
