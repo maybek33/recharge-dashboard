@@ -1,4 +1,60 @@
-import streamlit as st
+# Individual Keyword Time Analysis
+    st.markdown('<div class="section-title">📈 Keyword Position Trends Over Time</div>', unsafe_allow_html=True)
+    
+    # Get chart theme
+    chart_theme = get_chart_theme()
+    
+    if not filtered_df.empty and not filtered_df['DateTime'].isna().all():
+        # Keyword selector for time analysis
+        col1, col2 = st.columns([3, 1])
+        
+        with col1:
+            selected_keyword_for_trend = st.selectbox(
+                "Select keyword to analyze position trend:",
+                sorted(all_keywords),
+                key="llm_keyword_trend_selector"
+            )
+        
+        with col2:
+            show_all_results = st.checkbox(
+                "Show all results",
+                key="llm_show_all_results",
+                help="Show all search results, not just Recharge.com"
+            )
+        
+        if selected_keyword_for_trend:
+            st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+            
+            # Filter data for selected keyword
+            keyword_trend_data = filtered_df[
+                filtered_df['Keyword'] == selected_keyword_for_trend
+            ].copy()
+            
+            if not keyword_trend_data['DateTime'].isna().all():
+                # Group by datetime and get Recharge position
+                keyword_trend_data = keyword_trend_data.sort_values('DateTime')
+                
+                if show_all_results:
+                    # Show all top positions over time
+                    trend_data = keyword_trend_data.groupby(['DateTime', 'Result_URL'])['Position'].min().reset_index()
+                    
+                    # Create line chart for multiple URLs
+                    fig_trend = px.line(
+                        trend_data,
+                        x='DateTime',
+                        y='Position',
+                        color='Result_URL',
+                        title=f'Position Trends: {selected_keyword_for_trend}',
+                        markers=True,
+                        line_shape='linear'
+                    )
+                    
+                    # Customize traces
+                    for trace in fig_trend.data:
+                        if 'recharge.com' in trace.name.lower():
+                            trace.line.width = 4
+                            trace.line.color = '#f59e0b'
+                            import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -316,6 +372,27 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Utility functions
+def get_chart_theme():
+    """Get chart theme configuration based on current theme"""
+    if st.session_state.theme == 'dark':
+        return {
+            'paper_bgcolor': 'rgba(0,0,0,0)',
+            'plot_bgcolor': 'rgba(0,0,0,0)',
+            'font_color': '#f8fafc',
+            'title_font_color': '#f8fafc',
+            'gridcolor': '#334155',
+            'linecolor': '#334155'
+        }
+    else:
+        return {
+            'paper_bgcolor': 'rgba(255,255,255,0)',
+            'plot_bgcolor': 'rgba(255,255,255,0)',
+            'font_color': '#111827',
+            'title_font_color': '#111827',
+            'gridcolor': '#e5e7eb',
+            'linecolor': '#e5e7eb'
+        }
+
 def clean_html_from_url(url):
     """Clean all HTML artifacts from URLs"""
     if pd.isna(url):
@@ -459,15 +536,17 @@ def load_data_from_google_sheets():
 
 @st.cache_data(ttl=60)
 def load_llm_data():
-    """Load LLM position tracking data from Google Sheets"""
+    """Load LLM position tracking data from Excel file or Google Sheets"""
     
     try:
-        # Direct Google Sheets loading
-        sheet_id = "1RMUPPVR02dWXt2a-lK_gAXhU1h7CS7l8GzZCBx-DvPA"
-        sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid=0"
-        
-        # Load the data
-        df = pd.read_csv(sheet_url)
+        # Try to load from local Excel file first
+        try:
+            df = pd.read_excel('a pos3.xlsx')
+        except:
+            # If local file not found, load from Google Sheets
+            sheet_id = "1RMUPPVR02dWXt2a-lK_gAXhU1h7CS7l8GzZCBx-DvPA"
+            sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid=0"
+            df = pd.read_csv(sheet_url)
         
         # Process the data
         processed_data = []
@@ -534,10 +613,6 @@ def load_llm_data():
                     'Country': country
                 })
         
-        if not processed_data:
-            st.warning("No valid LLM data found after processing. Check the data structure.")
-            return pd.DataFrame()
-        
         result_df = pd.DataFrame(processed_data)
         
         # Ensure Position is numeric
@@ -548,7 +623,6 @@ def load_llm_data():
         
     except Exception as e:
         st.error(f"Error loading LLM data: {str(e)}")
-        st.info("Please ensure the Google Sheet is publicly accessible (Anyone with the link can view)")
         return pd.DataFrame()
 
 def parse_excel_datetime(date_val):
@@ -674,6 +748,9 @@ def show_executive_dashboard(df_processed):
     # Charts Section
     st.markdown('<div class="section-title">📈 Performance Analytics</div>', unsafe_allow_html=True)
     
+    # Get chart theme
+    chart_theme = get_chart_theme()
+    
     col1, col2 = st.columns(2)
     
     with col1:
@@ -705,11 +782,11 @@ def show_executive_dashboard(df_processed):
         
         fig_pie.update_layout(
             height=350,
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            font_color='#f8fafc',
+            paper_bgcolor=chart_theme['paper_bgcolor'],
+            plot_bgcolor=chart_theme['plot_bgcolor'],
+            font_color=chart_theme['font_color'],
             title_font_size=16,
-            title_font_color='#f8fafc'
+            title_font_color=chart_theme['title_font_color']
         )
         
         st.plotly_chart(fig_pie, use_container_width=True)
@@ -740,11 +817,13 @@ def show_executive_dashboard(df_processed):
                     height=350,
                     yaxis_title="Average Position (Lower is Better)",
                     yaxis=dict(autorange="reversed"),
-                    paper_bgcolor='rgba(0,0,0,0)',
-                    plot_bgcolor='rgba(0,0,0,0)',
-                    font_color='#f8fafc',
+                    paper_bgcolor=chart_theme['paper_bgcolor'],
+                    plot_bgcolor=chart_theme['plot_bgcolor'],
+                    font_color=chart_theme['font_color'],
                     title_font_size=16,
-                    title_font_color='#f8fafc'
+                    title_font_color=chart_theme['title_font_color'],
+                    xaxis=dict(gridcolor=chart_theme['gridcolor']),
+                    yaxis2=dict(gridcolor=chart_theme['gridcolor']) if 'yaxis2' in fig_bar.layout else None
                 )
                 
                 st.plotly_chart(fig_bar, use_container_width=True)
@@ -847,6 +926,9 @@ def show_keyword_analysis(df_processed):
         st.markdown('<div class="section-title">📈 Position Trend</div>', unsafe_allow_html=True)
         st.markdown('<div class="chart-container">', unsafe_allow_html=True)
         
+        # Get chart theme
+        chart_theme = get_chart_theme()
+        
         # Create position trend
         plot_data = keyword_data.copy()
         plot_data['Position_Numeric'] = plot_data['Recharge Position'].apply(
@@ -868,10 +950,10 @@ def show_keyword_analysis(df_processed):
                 height=400,
                 yaxis=dict(autorange="reversed", title="Search Position"),
                 xaxis_title="Date",
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)',
-                font_color='#f8fafc',
-                title_font_color='#f8fafc'
+                paper_bgcolor=chart_theme['paper_bgcolor'],
+                plot_bgcolor=chart_theme['plot_bgcolor'],
+                font_color=chart_theme['font_color'],
+                title_font_color=chart_theme['title_font_color']
             )
             
             # Add reference lines
@@ -1375,6 +1457,9 @@ def show_llm_position_tracking(llm_df):
     # Charts Section
     st.markdown('<div class="section-title">📊 LLM Performance Analytics</div>', unsafe_allow_html=True)
     
+    # Get chart theme
+    chart_theme = get_chart_theme()
+    
     col1, col2 = st.columns(2)
     
     with col1:
@@ -1384,27 +1469,23 @@ def show_llm_position_tracking(llm_df):
         if not recharge_df.empty:
             position_counts = recharge_df['Position'].value_counts().sort_index()
             
-            # Convert Series to DataFrame for Plotly Express
-            position_df = position_counts.reset_index()
-            position_df.columns = ['Position', 'Frequency']
-            
             fig_bar = px.bar(
-                position_df,
-                x='Position',
-                y='Frequency',
+                x=position_counts.index,
+                y=position_counts.values,
                 title="Recharge.com Position Distribution in LLM Results",
-                color='Frequency',
+                labels={'x': 'Position', 'y': 'Frequency'},
+                color=position_counts.values,
                 color_continuous_scale=['#ef4444', '#f59e0b', '#22c55e'][::-1]
             )
             
             fig_bar.update_layout(
                 height=350,
                 showlegend=False,
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)',
-                font_color='#f8fafc',
+                paper_bgcolor=chart_theme['paper_bgcolor'],
+                plot_bgcolor=chart_theme['plot_bgcolor'],
+                font_color=chart_theme['font_color'],
                 title_font_size=16,
-                title_font_color='#f8fafc'
+                title_font_color=chart_theme['title_font_color']
             )
             
             st.plotly_chart(fig_bar, use_container_width=True)
@@ -1452,11 +1533,11 @@ def show_llm_position_tracking(llm_df):
                 height=350,
                 yaxis=dict(title='Keywords', side='left'),
                 yaxis2=dict(title='Avg Position', overlaying='y', side='right'),
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)',
-                font_color='#f8fafc',
+                paper_bgcolor=chart_theme['paper_bgcolor'],
+                plot_bgcolor=chart_theme['plot_bgcolor'],
+                font_color=chart_theme['font_color'],
                 title_font_size=16,
-                title_font_color='#f8fafc',
+                title_font_color=chart_theme['title_font_color'],
                 showlegend=True,
                 legend=dict(x=0, y=1, bgcolor='rgba(0,0,0,0)')
             )
@@ -1560,11 +1641,11 @@ def show_llm_position_tracking(llm_df):
                             range=[0.5, 10.5]
                         ),
                         xaxis_title="Date/Time",
-                        paper_bgcolor='rgba(0,0,0,0)',
-                        plot_bgcolor='rgba(0,0,0,0)',
-                        font_color='#f8fafc',
+                        paper_bgcolor=chart_theme['paper_bgcolor'],
+                        plot_bgcolor=chart_theme['plot_bgcolor'],
+                        font_color=chart_theme['font_color'],
                         title_font_size=16,
-                        title_font_color='#f8fafc',
+                        title_font_color=chart_theme['title_font_color'],
                         hovermode='x unified'
                     )
                     
@@ -1579,6 +1660,651 @@ def show_llm_position_tracking(llm_df):
                     st.plotly_chart(fig_trend, use_container_width=True)
             else:
                 st.info("No time data available for this keyword")
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Keyword Performance Table
+    st.markdown('<div class="section-title">🔍 Keyword-Level LLM Performance</div>', unsafe_allow_html=True)
+    
+    if not filtered_df.empty:
+        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+        
+        # Create summary by keyword
+        keyword_summary = []
+        
+        for keyword in all_keywords:
+            keyword_data = filtered_df[filtered_df['Keyword'] == keyword]
+            recharge_data = keyword_data[keyword_data['Result_URL'].str.contains('recharge.com', na=False, case=False)]
+            
+            # Get latest position if multiple entries
+            latest_position = recharge_data.sort_values('DateTime', na_position='last')['Position'].iloc[-1] if not recharge_data.empty else None
+            
+            # Calculate position change if we have time data
+            position_change = None
+            if not recharge_data.empty and len(recharge_data) > 1:
+                sorted_data = recharge_data.sort_values('DateTime', na_position='last')
+                if len(sorted_data) >= 2:
+                    latest = sorted_data['Position'].iloc[-1]
+                    previous = sorted_data['Position'].iloc[-2]
+                    position_change = previous - latest
+            
+            summary = {
+                'Keyword': keyword,
+                'Country': keyword_data['Country'].iloc[0] if not keyword_data.empty else 'Unknown',
+                'Total Results': len(keyword_data['Result_URL'].unique()),
+                'Recharge Position': latest_position if latest_position else 'Not Ranking',
+                'Change': f"+{position_change}" if position_change and position_change > 0 else f"{position_change}" if position_change else "-",
+                'Status': '✅ Ranking' if latest_position else '❌ Not Ranking'
+            }
+            keyword_summary.append(summary)
+        
+        summary_df = pd.DataFrame(keyword_summary)
+        
+        # Sort by Recharge Position (ranking first, then not ranking)
+        summary_df['Sort_Key'] = summary_df['Recharge Position'].apply(
+            lambda x: x if isinstance(x, (int, float)) else 999
+        )
+        summary_df = summary_df.sort_values('Sort_Key').drop('Sort_Key', axis=1)
+        
+        # Format the position column
+        summary_df['Recharge Position'] = summary_df['Recharge Position'].apply(
+            lambda x: f"#{int(x)}" if isinstance(x, (int, float)) else x
+        )
+        
+        # Apply country flags
+        summary_df['Country'] = summary_df['Country'].apply(
+            lambda x: get_country_flag(x) if x != 'Unknown' else x
+        )
+        
+        st.dataframe(
+            summary_df,
+            use_container_width=True,
+            hide_index=True,
+            height=400
+        )
+        
+        # Export button
+        csv = summary_df.to_csv(index=False)
+        st.download_button(
+            label="📥 Download CSV",
+            data=csv,
+            file_name=f"llm_position_tracking_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            mime="text/csv"
+        )
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Top Performing Keywords
+    st.markdown('<div class="section-title">🏆 Top Performing Keywords in LLM Results</div>', unsafe_allow_html=True)
+    
+    if not recharge_df.empty:
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+            st.markdown("**🥇 Best Positions**")
+            
+            # Get keywords where Recharge ranks in top 3
+            top_performers = recharge_df[recharge_df['Position'] <= 3].groupby('Keyword')['Position'].min().sort_values()
+            
+            if not top_performers.empty:
+                for keyword, position in top_performers.head(10).items():
+                    country = recharge_df[recharge_df['Keyword'] == keyword]['Country'].iloc[0]
+                    country_flag = get_country_flag(country)
+                    st.markdown(f"• **{keyword}** ({country_flag}): Position #{int(position)}")
+            else:
+                st.info("No keywords ranking in top 3")
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+            st.markdown("**📈 Keywords Needing Improvement**")
+            
+            # Get keywords where Recharge ranks but not in top 3
+            needs_improvement = recharge_df[recharge_df['Position'] > 3].groupby('Keyword')['Position'].min().sort_values(ascending=False)
+            
+            if not needs_improvement.empty:
+                for keyword, position in needs_improvement.head(10).items():
+                    country = recharge_df[recharge_df['Keyword'] == keyword]['Country'].iloc[0]
+                    country_flag = get_country_flag(country)
+                    st.markdown(f"• **{keyword}** ({country_flag}): Position #{int(position)}")
+            else:
+                st.info("All keywords ranking in top 3!")
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Compact Position Matrix View
+    st.markdown('<div class="section-title">📋 All Keywords Position Matrix (Top 5)</div>', unsafe_allow_html=True)
+    
+    if not filtered_df.empty:
+        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+        
+        # Create matrix data for all keywords
+        matrix_data = []
+        
+        for keyword in sorted(all_keywords):
+            keyword_data = filtered_df[filtered_df['Keyword'] == keyword].copy()
+            
+            # Clean URLs in keyword data
+            keyword_data['Result_URL'] = keyword_data['Result_URL'].apply(clean_html_from_url)
+            
+            # Remove invalid URLs
+            keyword_data = keyword_data[
+                (keyword_data['Result_URL'].notna()) & 
+                (keyword_data['Result_URL'] != '') &
+                (keyword_data['Result_URL'].str.startswith('http'))
+            ]
+            
+            # Get latest data if datetime available
+            if not keyword_data['DateTime'].isna().all():
+                latest_time = keyword_data['DateTime'].max()
+                keyword_data = keyword_data[keyword_data['DateTime'] == latest_time]
+            
+            # Remove duplicates - keep only first URL for each position
+            keyword_data = keyword_data.drop_duplicates(subset=['Position'], keep='first')
+            
+            # Get top 5 positions
+            top_5 = keyword_data[keyword_data['Position'] <= 5].sort_values('Position')
+            
+            # Create row data
+            row_data = {
+                'Keyword': keyword,
+                'Country': get_country_flag(keyword_data['Country'].iloc[0]) if not keyword_data.empty else 'Unknown'
+            }
+            
+            # Add position columns with clean URLs only
+            for pos in range(1, 6):
+                pos_data = top_5[top_5['Position'] == pos]
+                if not pos_data.empty:
+                    url = pos_data['Result_URL'].iloc[0]
+                    # Show full URL, truncate if very long
+                    row_data[f'Pos {pos}'] = url if len(url) <= 100 else url[:97] + "..."
+                else:
+                    row_data[f'Pos {pos}'] = "-"
+            
+            # Add Recharge position
+            recharge_pos = keyword_data[
+                keyword_data['Result_URL'].str.contains('recharge.com', case=False, na=False)
+            ]['Position'].min()
+            
+            if pd.notna(recharge_pos):
+                row_data['Recharge Pos'] = f"#{int(recharge_pos)}"
+            else:
+                row_data['Recharge Pos'] = "Not Ranking"
+            
+            matrix_data.append(row_data)
+        
+        # Create DataFrame
+        matrix_df = pd.DataFrame(matrix_data)
+        
+        # Sort by Recharge position
+        matrix_df['Sort_Key'] = matrix_df['Recharge Pos'].apply(
+            lambda x: int(x.replace('#', '')) if x.startswith('#') else 999
+        )
+        matrix_df = matrix_df.sort_values('Sort_Key').drop('Sort_Key', axis=1)
+        
+        # Display the matrix with custom column configuration for better readability
+        st.dataframe(
+            matrix_df,
+            use_container_width=True,
+            hide_index=True,
+            height=min(600, 40 * len(matrix_df) + 50),
+            column_config={
+                "Keyword": st.column_config.TextColumn("Keyword", width="small"),
+                "Country": st.column_config.TextColumn("Country", width="small"),
+                "Pos 1": st.column_config.TextColumn("Position 1", width="large"),
+                "Pos 2": st.column_config.TextColumn("Position 2", width="large"),
+                "Pos 3": st.column_config.TextColumn("Position 3", width="large"),
+                "Pos 4": st.column_config.TextColumn("Position 4", width="large"),
+                "Pos 5": st.column_config.TextColumn("Position 5", width="large"),
+                "Recharge Pos": st.column_config.TextColumn("Recharge", width="small")
+            }
+        )
+        
+        # Summary stats
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            ranking_count = len([x for x in matrix_df['Recharge Pos'] if x != 'Not Ranking'])
+            st.metric("Keywords with Recharge", f"{ranking_count}/{len(matrix_df)}")
+        
+        with col2:
+            top_3_count = len([x for x in matrix_df['Recharge Pos'] if x.startswith('#') and int(x[1:]) <= 3])
+            st.metric("In Top 3", top_3_count)
+        
+        with col3:
+            pos_1_count = len([x for x in matrix_df['Recharge Pos'] if x == '#1'])
+            st.metric("Position #1", pos_1_count)
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Complete Position Rankings by Keyword
+    st.markdown('<div class="section-title">🎯 Complete Position Rankings by Keyword</div>', unsafe_allow_html=True)
+    
+    if not filtered_df.empty:
+        # Keyword selector for detailed SERP view
+        col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
+        
+        with col1:
+            selected_keyword_detail = st.selectbox(
+                "Select keyword to see all positions:",
+                sorted(all_keywords),
+                key="llm_keyword_detail_selector"
+            )
+        
+        with col2:
+            max_positions = st.slider(
+                "Show top N positions:",
+                min_value=5,
+                max_value=30,
+                value=10,
+                step=5,
+                key="llm_max_positions"
+            )
+        
+        with col3:
+            show_latest_only = st.checkbox(
+                "Latest results only",
+                value=True,
+                key="llm_latest_only",
+                help="Show only the most recent results for this keyword"
+            )
+        
+        with col4:
+            show_full_urls = st.checkbox(
+                "Show full URLs",
+                value=True,
+                key="llm_show_full_urls",
+                help="Toggle between full URLs and domain names"
+            )
+        
+        if selected_keyword_detail:
+            st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+            
+            # Filter data for selected keyword
+            keyword_detail_data = filtered_df[
+                filtered_df['Keyword'] == selected_keyword_detail
+            ].copy()
+            
+            if not keyword_detail_data.empty:
+                # Get latest or all timestamps
+                if show_latest_only and not keyword_detail_data['DateTime'].isna().all():
+                    latest_time = keyword_detail_data['DateTime'].max()
+                    keyword_detail_data = keyword_detail_data[
+                        keyword_detail_data['DateTime'] == latest_time
+                    ]
+                    display_time = latest_time.strftime('%B %d, %Y at %I:%M %p') if pd.notna(latest_time) else "Unknown"
+                else:
+                    display_time = "All available data"
+                
+                # Get country for this keyword
+                keyword_country = keyword_detail_data['Country'].iloc[0] if 'Country' in keyword_detail_data.columns else 'Unknown'
+                
+                # Create position summary
+                st.markdown(f"**📍 Keyword:** `{selected_keyword_detail}` | **🌍 Country:** {get_country_flag(keyword_country)} | **🕐 Data:** {display_time}")
+                
+                # Clean and sort position data
+                position_data = keyword_detail_data[
+                    keyword_detail_data['Position'] <= max_positions
+                ].copy()
+                
+                # Clean URLs using the utility function
+                position_data['Result_URL'] = position_data['Result_URL'].apply(clean_html_from_url)
+                
+                # Remove any rows with empty or invalid URLs after cleaning
+                position_data = position_data[
+                    (position_data['Result_URL'].notna()) & 
+                    (position_data['Result_URL'] != '') &
+                    (position_data['Result_URL'].str.startswith('http'))
+                ]
+                
+                # Remove duplicates - keep only first URL for each position
+                position_data = position_data.drop_duplicates(subset=['Position'], keep='first')
+                position_data = position_data.sort_values('Position')
+                
+                if not position_data.empty:
+                    # Create single column layout for better readability
+                    st.markdown("**Search Results:**")
+                    
+                    # Display positions in order - one URL per position
+                    for pos in sorted(position_data['Position'].unique()):
+                        entry = position_data[position_data['Position'] == pos].iloc[0]
+                        url = entry['Result_URL']
+                        
+                        # Determine if it's Recharge
+                        is_recharge = 'recharge.com' in url.lower()
+                        
+                        # Choose display format based on toggle
+                        if show_full_urls:
+                            display_url = url
+                        else:
+                            try:
+                                display_url = urlparse(url).netloc.replace('www.', '')
+                                if not display_url:
+                                    display_url = url
+                            except:
+                                display_url = url
+                        
+                        # Style based on whether it's Recharge
+                        if is_recharge:
+                            position_color = "#f59e0b"
+                            result_class = "recharge"
+                        else:
+                            position_color = "#64748b"
+                            result_class = ""
+                        
+                        st.markdown(f"""
+                        <div class="serp-result {result_class}" style="margin-bottom: 0.75rem;">
+                            <div class="position-number" style="background: {position_color};">
+                                {int(pos)}
+                            </div>
+                            <div class="result-content" style="flex: 1;">
+                                <div class="result-url" style="word-break: break-all; font-size: 0.85rem;">{display_url}</div>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    # Summary statistics
+                    st.markdown("---")
+                    col_stat1, col_stat2, col_stat3 = st.columns(3)
+                    
+                    with col_stat1:
+                        recharge_pos = position_data[
+                            position_data['Result_URL'].str.contains('recharge.com', case=False, na=False)
+                        ]['Position'].min()
+                        
+                        if pd.notna(recharge_pos):
+                            st.metric("Recharge Position", f"#{int(recharge_pos)}")
+                        else:
+                            st.metric("Recharge Position", "Not Ranking")
+                    
+                    with col_stat2:
+                        total_results = len(position_data['Position'].unique())
+                        st.metric("Positions Shown", f"{total_results}/{max_positions}")
+                    
+                    with col_stat3:
+                        unique_domains = position_data['Result_URL'].apply(
+                            lambda x: urlparse(x).netloc.replace('www.', '') if x else ''
+                        ).nunique()
+                        st.metric("Unique Domains", unique_domains)
+                
+                else:
+                    st.info(f"No results found in top {max_positions} positions")
+            else:
+                st.warning(f"No data available for keyword: {selected_keyword_detail}")
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+    
+    # LLM SERP Comparison
+    st.markdown('<div class="section-title">⚖️ LLM SERP Comparison</div>', unsafe_allow_html=True)
+    
+    if not filtered_df.empty and not filtered_df['DateTime'].isna().all():
+        # Keyword selector for comparison
+        comparison_keyword = st.selectbox(
+            "Select keyword for comparison:",
+            sorted(all_keywords),
+            key="llm_comparison_keyword"
+        )
+        
+        if comparison_keyword:
+            # Get data for selected keyword
+            comparison_data = filtered_df[filtered_df['Keyword'] == comparison_keyword].copy()
+            
+            # Clean URLs using the utility function
+            comparison_data['Result_URL'] = comparison_data['Result_URL'].apply(clean_html_from_url)
+            
+            # Remove invalid URLs
+            comparison_data = comparison_data[
+                (comparison_data['Result_URL'].notna()) & 
+                (comparison_data['Result_URL'] != '') &
+                (comparison_data['Result_URL'].str.startswith('http'))
+            ]
+            
+            # Get available timestamps
+            available_times = sorted(comparison_data['DateTime'].dropna().unique())
+            
+            if len(available_times) >= 2:
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    time1 = st.selectbox(
+                        "📅 Select first date/time:",
+                        available_times,
+                        format_func=lambda x: x.strftime('%B %d, %Y at %I:%M %p'),
+                        key="llm_time1"
+                    )
+                
+                with col2:
+                    time2 = st.selectbox(
+                        "📅 Select second date/time:",
+                        available_times,
+                        format_func=lambda x: x.strftime('%B %d, %Y at %I:%M %p'),
+                        index=len(available_times)-1,
+                        key="llm_time2"
+                    )
+                
+                if time1 != time2:
+                    # Get data for both times
+                    data1 = comparison_data[comparison_data['DateTime'] == time1].copy()
+                    data2 = comparison_data[comparison_data['DateTime'] == time2].copy()
+                    
+                    # Remove duplicates - keep only first URL for each position
+                    data1 = data1.drop_duplicates(subset=['Position'], keep='first')
+                    data2 = data2.drop_duplicates(subset=['Position'], keep='first')
+                    
+                    # Track movements
+                    col1, col2, col3, col4 = st.columns(4)
+                    
+                    # Calculate changes
+                    urls1 = set(data1['Result_URL'].unique())
+                    urls2 = set(data2['Result_URL'].unique())
+                    
+                    improved = 0
+                    declined = 0
+                    new_entries = len(urls2 - urls1)
+                    lost_entries = len(urls1 - urls2)
+                    
+                    # Calculate position changes for common URLs
+                    for url in urls1.intersection(urls2):
+                        pos1 = data1[data1['Result_URL'] == url]['Position'].min()
+                        pos2 = data2[data2['Result_URL'] == url]['Position'].min()
+                        if pos2 < pos1:
+                            improved += 1
+                        elif pos2 > pos1:
+                            declined += 1
+                    
+                    with col1:
+                        st.markdown(f"""
+                        <div class="metric-card" style="border-left: 4px solid #22c55e;">
+                            <div class="metric-number" style="color: #22c55e;">{improved}</div>
+                            <div class="metric-label">📈 Improved</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    with col2:
+                        st.markdown(f"""
+                        <div class="metric-card" style="border-left: 4px solid #ef4444;">
+                            <div class="metric-number" style="color: #ef4444;">{declined}</div>
+                            <div class="metric-label">📉 Declined</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    with col3:
+                        st.markdown(f"""
+                        <div class="metric-card" style="border-left: 4px solid #3b82f6;">
+                            <div class="metric-number" style="color: #3b82f6;">{new_entries}</div>
+                            <div class="metric-label">🆕 New</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    with col4:
+                        st.markdown(f"""
+                        <div class="metric-card" style="border-left: 4px solid #f59e0b;">
+                            <div class="metric-number" style="color: #f59e0b;">{lost_entries}</div>
+                            <div class="metric-label">❌ Lost</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    # Side-by-side comparison
+                    st.markdown("---")
+                    col_left, col_right = st.columns(2)
+                    
+                    with col_left:
+                        st.markdown(f"""
+                        <div class="serp-column">
+                            <div class="serp-header">📅 {time1.strftime('%B %d, %Y at %I:%M %p')}</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        # Show top 10 results from time1 - one per position
+                        for pos in sorted(data1['Position'].unique())[:10]:
+                            entry = data1[data1['Position'] == pos].iloc[0]
+                            url = entry['Result_URL']
+                            is_recharge = 'recharge.com' in url.lower()
+                            
+                            position_color = "#f59e0b" if is_recharge else "#64748b"
+                            
+                            st.markdown(f"""
+                            <div class="serp-result {'recharge' if is_recharge else ''}">
+                                <div class="position-number" style="background: {position_color};">
+                                    {int(pos)}
+                                </div>
+                                <div class="result-content">
+                                    <div class="result-url" style="font-size: 0.75rem; word-break: break-all;">{url}</div>
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                    
+                    with col_right:
+                        st.markdown(f"""
+                        <div class="serp-column">
+                            <div class="serp-header">📅 {time2.strftime('%B %d, %Y at %I:%M %p')}</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        # Show top 10 results from time2 - one per position
+                        for pos in sorted(data2['Position'].unique())[:10]:
+                            entry = data2[data2['Position'] == pos].iloc[0]
+                            url = entry['Result_URL']
+                            is_recharge = 'recharge.com' in url.lower()
+                            
+                            # Check if this URL moved
+                            change_indicator = ""
+                            change_color = "#64748b"
+                            if url in urls1:
+                                old_pos = data1[data1['Result_URL'] == url]['Position'].min()
+                                if old_pos > pos:
+                                    change_indicator = f" ↑{int(old_pos - pos)}"
+                                    change_color = "#22c55e"
+                                elif old_pos < pos:
+                                    change_indicator = f" ↓{int(pos - old_pos)}"
+                                    change_color = "#ef4444"
+                            else:
+                                change_indicator = " (NEW)"
+                                change_color = "#3b82f6"
+                            
+                            position_color = "#f59e0b" if is_recharge else change_color
+                            
+                            st.markdown(f"""
+                            <div class="serp-result {'recharge' if is_recharge else ''}">
+                                <div class="position-number" style="background: {position_color};">
+                                    {int(pos)}
+                                </div>
+                                <div class="result-content">
+                                    <div class="result-url" style="font-size: 0.75rem; word-break: break-all; color: {change_color if not is_recharge else '#f59e0b'};">
+                                        {url}{change_indicator}
+                                    </div>
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                else:
+                    st.warning("Please select two different times for comparison")
+            else:
+                st.info(f"Need at least 2 data points for comparison. Currently have {len(available_times)}")
+    else:
+        st.info("No temporal data available for comparison")
+    
+    # Historical Performance Summary
+    if not filtered_df['DateTime'].isna().all() and not recharge_df.empty:
+        st.markdown('<div class="section-title">📊 Historical Performance Summary</div>', unsafe_allow_html=True)
+        
+        # Get chart theme
+        chart_theme = get_chart_theme()
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+            
+            # Position trend over time (aggregated)
+            daily_avg = recharge_df.set_index('DateTime').resample('D')['Position'].mean().dropna()
+            
+            if not daily_avg.empty:
+                fig_daily = px.line(
+                    x=daily_avg.index,
+                    y=daily_avg.values,
+                    title="Average Daily Position Trend",
+                    labels={'x': 'Date', 'y': 'Average Position'}
+                )
+                
+                fig_daily.update_traces(
+                    line=dict(width=3, color='#22c55e'),
+                    mode='lines+markers',
+                    marker=dict(size=8)
+                )
+                
+                fig_daily.update_layout(
+                    height=300,
+                    yaxis=dict(autorange="reversed", title="Average Position"),
+                    xaxis_title="Date",
+                    paper_bgcolor=chart_theme['paper_bgcolor'],
+                    plot_bgcolor=chart_theme['plot_bgcolor'],
+                    font_color=chart_theme['font_color'],
+                    showlegend=False
+                )
+                
+                st.plotly_chart(fig_daily, use_container_width=True)
+            else:
+                st.info("Not enough historical data")
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+            
+            # Visibility trend over time
+            daily_visibility = filtered_df.set_index('DateTime').resample('D').apply(
+                lambda x: (x['Result_URL'].str.contains('recharge.com', case=False, na=False).sum() / len(x) * 100) if len(x) > 0 else 0
+            ).dropna()
+            
+            if not daily_visibility.empty:
+                fig_visibility = px.area(
+                    x=daily_visibility.index,
+                    y=daily_visibility.values,
+                    title="Daily Visibility Rate (%)",
+                    labels={'x': 'Date', 'y': 'Visibility (%)'}
+                )
+                
+                fig_visibility.update_traces(
+                    fill='tozeroy',
+                    line=dict(width=2, color='#3b82f6'),
+                    fillcolor='rgba(59, 130, 246, 0.3)'
+                )
+                
+                fig_visibility.update_layout(
+                    height=300,
+                    yaxis=dict(title="Visibility (%)", range=[0, 100]),
+                    xaxis_title="Date",
+                    paper_bgcolor=chart_theme['paper_bgcolor'],
+                    plot_bgcolor=chart_theme['plot_bgcolor'],
+                    font_color=chart_theme['font_color'],
+                    showlegend=False
+                )
+                
+                st.plotly_chart(fig_visibility, use_container_width=True)
+            else:
+                st.info("Not enough historical data")
             
             st.markdown('</div>', unsafe_allow_html=True)
 
@@ -1601,6 +2327,7 @@ def main():
         return
     
     # Sidebar navigation - Updated with new option
+    st.sidebar.markdown("---")
     st.sidebar.markdown("### 📊 Navigation")
     
     page = st.sidebar.radio(
