@@ -459,17 +459,13 @@ def load_data_from_google_sheets():
 
 @st.cache_data(ttl=60)
 def load_llm_data():
-    """Load LLM position tracking data from Excel file or Google Sheets"""
+    """Load LLM position tracking data from Google Sheets"""
     
     try:
-        # Try to load from local Excel file first
-        try:
-            df = pd.read_excel('a pos3.xlsx')
-        except:
-            # If local file not found, load from Google Sheets
-            sheet_id = "1RMUPPVR02dWXt2a-lK_gAXhU1h7CS7l8GzZCBx-DvPA"
-            sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid=0"
-            df = pd.read_csv(sheet_url)
+        # Load from Google Sheets (publicly available)
+        sheet_id = "1RMUPPVR02dWXt2a-lK_gAXhU1h7CS7l8GzZCBx-DvPA"
+        sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid=0"
+        df = pd.read_csv(sheet_url)
         
         # Process the data
         processed_data = []
@@ -1381,12 +1377,18 @@ def show_llm_position_tracking(llm_df):
         if not recharge_df.empty:
             position_counts = recharge_df['Position'].value_counts().sort_index()
             
+            # Convert Series to DataFrame for plotly
+            position_df = pd.DataFrame({
+                'Position': position_counts.index,
+                'Frequency': position_counts.values
+            })
+            
             fig_bar = px.bar(
-                x=position_counts.index,
-                y=position_counts.values,
+                position_df,
+                x='Position',
+                y='Frequency',
                 title="Recharge.com Position Distribution in LLM Results",
-                labels={'x': 'Position', 'y': 'Frequency'},
-                color=position_counts.values,
+                color='Frequency',
                 color_continuous_scale=['#ef4444', '#f59e0b', '#22c55e'][::-1]
             )
             
