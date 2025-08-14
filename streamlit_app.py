@@ -1,60 +1,4 @@
-# Individual Keyword Time Analysis
-    st.markdown('<div class="section-title">📈 Keyword Position Trends Over Time</div>', unsafe_allow_html=True)
-    
-    # Get chart theme
-    chart_theme = get_chart_theme()
-    
-    if not filtered_df.empty and not filtered_df['DateTime'].isna().all():
-        # Keyword selector for time analysis
-        col1, col2 = st.columns([3, 1])
-        
-        with col1:
-            selected_keyword_for_trend = st.selectbox(
-                "Select keyword to analyze position trend:",
-                sorted(all_keywords),
-                key="llm_keyword_trend_selector"
-            )
-        
-        with col2:
-            show_all_results = st.checkbox(
-                "Show all results",
-                key="llm_show_all_results",
-                help="Show all search results, not just Recharge.com"
-            )
-        
-        if selected_keyword_for_trend:
-            st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-            
-            # Filter data for selected keyword
-            keyword_trend_data = filtered_df[
-                filtered_df['Keyword'] == selected_keyword_for_trend
-            ].copy()
-            
-            if not keyword_trend_data['DateTime'].isna().all():
-                # Group by datetime and get Recharge position
-                keyword_trend_data = keyword_trend_data.sort_values('DateTime')
-                
-                if show_all_results:
-                    # Show all top positions over time
-                    trend_data = keyword_trend_data.groupby(['DateTime', 'Result_URL'])['Position'].min().reset_index()
-                    
-                    # Create line chart for multiple URLs
-                    fig_trend = px.line(
-                        trend_data,
-                        x='DateTime',
-                        y='Position',
-                        color='Result_URL',
-                        title=f'Position Trends: {selected_keyword_for_trend}',
-                        markers=True,
-                        line_shape='linear'
-                    )
-                    
-                    # Customize traces
-                    for trace in fig_trend.data:
-                        if 'recharge.com' in trace.name.lower():
-                            trace.line.width = 4
-                            trace.line.color = '#f59e0b'
-                            import streamlit as st
+import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -372,27 +316,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Utility functions
-def get_chart_theme():
-    """Get chart theme configuration based on current theme"""
-    if st.session_state.theme == 'dark':
-        return {
-            'paper_bgcolor': 'rgba(0,0,0,0)',
-            'plot_bgcolor': 'rgba(0,0,0,0)',
-            'font_color': '#f8fafc',
-            'title_font_color': '#f8fafc',
-            'gridcolor': '#334155',
-            'linecolor': '#334155'
-        }
-    else:
-        return {
-            'paper_bgcolor': 'rgba(255,255,255,0)',
-            'plot_bgcolor': 'rgba(255,255,255,0)',
-            'font_color': '#111827',
-            'title_font_color': '#111827',
-            'gridcolor': '#e5e7eb',
-            'linecolor': '#e5e7eb'
-        }
-
 def clean_html_from_url(url):
     """Clean all HTML artifacts from URLs"""
     if pd.isna(url):
@@ -748,9 +671,6 @@ def show_executive_dashboard(df_processed):
     # Charts Section
     st.markdown('<div class="section-title">📈 Performance Analytics</div>', unsafe_allow_html=True)
     
-    # Get chart theme
-    chart_theme = get_chart_theme()
-    
     col1, col2 = st.columns(2)
     
     with col1:
@@ -782,11 +702,11 @@ def show_executive_dashboard(df_processed):
         
         fig_pie.update_layout(
             height=350,
-            paper_bgcolor=chart_theme['paper_bgcolor'],
-            plot_bgcolor=chart_theme['plot_bgcolor'],
-            font_color=chart_theme['font_color'],
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            font_color='#f8fafc',
             title_font_size=16,
-            title_font_color=chart_theme['title_font_color']
+            title_font_color='#f8fafc'
         )
         
         st.plotly_chart(fig_pie, use_container_width=True)
@@ -817,13 +737,11 @@ def show_executive_dashboard(df_processed):
                     height=350,
                     yaxis_title="Average Position (Lower is Better)",
                     yaxis=dict(autorange="reversed"),
-                    paper_bgcolor=chart_theme['paper_bgcolor'],
-                    plot_bgcolor=chart_theme['plot_bgcolor'],
-                    font_color=chart_theme['font_color'],
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    font_color='#f8fafc',
                     title_font_size=16,
-                    title_font_color=chart_theme['title_font_color'],
-                    xaxis=dict(gridcolor=chart_theme['gridcolor']),
-                    yaxis2=dict(gridcolor=chart_theme['gridcolor']) if 'yaxis2' in fig_bar.layout else None
+                    title_font_color='#f8fafc'
                 )
                 
                 st.plotly_chart(fig_bar, use_container_width=True)
@@ -926,9 +844,6 @@ def show_keyword_analysis(df_processed):
         st.markdown('<div class="section-title">📈 Position Trend</div>', unsafe_allow_html=True)
         st.markdown('<div class="chart-container">', unsafe_allow_html=True)
         
-        # Get chart theme
-        chart_theme = get_chart_theme()
-        
         # Create position trend
         plot_data = keyword_data.copy()
         plot_data['Position_Numeric'] = plot_data['Recharge Position'].apply(
@@ -950,10 +865,10 @@ def show_keyword_analysis(df_processed):
                 height=400,
                 yaxis=dict(autorange="reversed", title="Search Position"),
                 xaxis_title="Date",
-                paper_bgcolor=chart_theme['paper_bgcolor'],
-                plot_bgcolor=chart_theme['plot_bgcolor'],
-                font_color=chart_theme['font_color'],
-                title_font_color=chart_theme['title_font_color']
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font_color='#f8fafc',
+                title_font_color='#f8fafc'
             )
             
             # Add reference lines
@@ -1457,9 +1372,6 @@ def show_llm_position_tracking(llm_df):
     # Charts Section
     st.markdown('<div class="section-title">📊 LLM Performance Analytics</div>', unsafe_allow_html=True)
     
-    # Get chart theme
-    chart_theme = get_chart_theme()
-    
     col1, col2 = st.columns(2)
     
     with col1:
@@ -1481,11 +1393,11 @@ def show_llm_position_tracking(llm_df):
             fig_bar.update_layout(
                 height=350,
                 showlegend=False,
-                paper_bgcolor=chart_theme['paper_bgcolor'],
-                plot_bgcolor=chart_theme['plot_bgcolor'],
-                font_color=chart_theme['font_color'],
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font_color='#f8fafc',
                 title_font_size=16,
-                title_font_color=chart_theme['title_font_color']
+                title_font_color='#f8fafc'
             )
             
             st.plotly_chart(fig_bar, use_container_width=True)
@@ -1533,11 +1445,11 @@ def show_llm_position_tracking(llm_df):
                 height=350,
                 yaxis=dict(title='Keywords', side='left'),
                 yaxis2=dict(title='Avg Position', overlaying='y', side='right'),
-                paper_bgcolor=chart_theme['paper_bgcolor'],
-                plot_bgcolor=chart_theme['plot_bgcolor'],
-                font_color=chart_theme['font_color'],
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font_color='#f8fafc',
                 title_font_size=16,
-                title_font_color=chart_theme['title_font_color'],
+                title_font_color='#f8fafc',
                 showlegend=True,
                 legend=dict(x=0, y=1, bgcolor='rgba(0,0,0,0)')
             )
@@ -1641,11 +1553,11 @@ def show_llm_position_tracking(llm_df):
                             range=[0.5, 10.5]
                         ),
                         xaxis_title="Date/Time",
-                        paper_bgcolor=chart_theme['paper_bgcolor'],
-                        plot_bgcolor=chart_theme['plot_bgcolor'],
-                        font_color=chart_theme['font_color'],
+                        paper_bgcolor='rgba(0,0,0,0)',
+                        plot_bgcolor='rgba(0,0,0,0)',
+                        font_color='#f8fafc',
                         title_font_size=16,
-                        title_font_color=chart_theme['title_font_color'],
+                        title_font_color='#f8fafc',
                         hovermode='x unified'
                     )
                     
@@ -2229,9 +2141,6 @@ def show_llm_position_tracking(llm_df):
     if not filtered_df['DateTime'].isna().all() and not recharge_df.empty:
         st.markdown('<div class="section-title">📊 Historical Performance Summary</div>', unsafe_allow_html=True)
         
-        # Get chart theme
-        chart_theme = get_chart_theme()
-        
         col1, col2 = st.columns(2)
         
         with col1:
@@ -2258,9 +2167,9 @@ def show_llm_position_tracking(llm_df):
                     height=300,
                     yaxis=dict(autorange="reversed", title="Average Position"),
                     xaxis_title="Date",
-                    paper_bgcolor=chart_theme['paper_bgcolor'],
-                    plot_bgcolor=chart_theme['plot_bgcolor'],
-                    font_color=chart_theme['font_color'],
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    font_color='#f8fafc',
                     showlegend=False
                 )
                 
@@ -2296,9 +2205,9 @@ def show_llm_position_tracking(llm_df):
                     height=300,
                     yaxis=dict(title="Visibility (%)", range=[0, 100]),
                     xaxis_title="Date",
-                    paper_bgcolor=chart_theme['paper_bgcolor'],
-                    plot_bgcolor=chart_theme['plot_bgcolor'],
-                    font_color=chart_theme['font_color'],
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    font_color='#f8fafc',
                     showlegend=False
                 )
                 
@@ -2327,7 +2236,6 @@ def main():
         return
     
     # Sidebar navigation - Updated with new option
-    st.sidebar.markdown("---")
     st.sidebar.markdown("### 📊 Navigation")
     
     page = st.sidebar.radio(
