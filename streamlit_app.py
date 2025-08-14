@@ -459,17 +459,15 @@ def load_data_from_google_sheets():
 
 @st.cache_data(ttl=60)
 def load_llm_data():
-    """Load LLM position tracking data from Excel file or Google Sheets"""
+    """Load LLM position tracking data from Google Sheets"""
     
     try:
-        # Try to load from local Excel file first
-        try:
-            df = pd.read_excel('a pos3.xlsx')
-        except:
-            # If local file not found, load from Google Sheets
-            sheet_id = "1RMUPPVR02dWXt2a-lK_gAXhU1h7CS7l8GzZCBx-DvPA"
-            sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid=0"
-            df = pd.read_csv(sheet_url)
+        # Direct Google Sheets loading
+        sheet_id = "1RMUPPVR02dWXt2a-lK_gAXhU1h7CS7l8GzZCBx-DvPA"
+        sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid=0"
+        
+        # Load the data
+        df = pd.read_csv(sheet_url)
         
         # Process the data
         processed_data = []
@@ -536,6 +534,10 @@ def load_llm_data():
                     'Country': country
                 })
         
+        if not processed_data:
+            st.warning("No valid LLM data found after processing. Check the data structure.")
+            return pd.DataFrame()
+        
         result_df = pd.DataFrame(processed_data)
         
         # Ensure Position is numeric
@@ -546,6 +548,7 @@ def load_llm_data():
         
     except Exception as e:
         st.error(f"Error loading LLM data: {str(e)}")
+        st.info("Please ensure the Google Sheet is publicly accessible (Anyone with the link can view)")
         return pd.DataFrame()
 
 def parse_excel_datetime(date_val):
@@ -1578,9 +1581,6 @@ def show_llm_position_tracking(llm_df):
                 st.info("No time data available for this keyword")
             
             st.markdown('</div>', unsafe_allow_html=True)
-    
-    # Continue with the rest of the function...
-    # (The rest of the show_llm_position_tracking function remains the same)
 
 def main():
     # Load data
